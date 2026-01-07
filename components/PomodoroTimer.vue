@@ -323,7 +323,14 @@ const pomodoroCount = ref(0)
 
 // Settings Modal State
 const isSettingsOpen = ref(false)
-const settingsForm = ref<TimerSettings>({ ...savedSettings.value })
+const settingsForm = ref<TimerSettings>({ ...DEFAULT_SETTINGS })
+
+// Update settingsForm when savedSettings changes (e.g., after loading from Supabase)
+watch(savedSettings, (newSettings) => {
+  if (!isSettingsOpen.value) {
+    settingsForm.value = { ...newSettings }
+  }
+}, { immediate: true, deep: true })
 
 // Computed timer durations based on saved settings (in seconds)
 const timerDurations = computed<Record<TimerMode, number>>(() => ({
@@ -335,6 +342,13 @@ const timerDurations = computed<Record<TimerMode, number>>(() => ({
 const currentMode = ref<TimerMode>('focus')
 const timeRemaining = ref(timerDurations.value.focus)
 const isRunning = ref(false)
+
+// Update timeRemaining when settings change (only if timer is not running)
+watch(timerDurations, (newDurations) => {
+  if (!isRunning.value) {
+    timeRemaining.value = newDurations[currentMode.value]
+  }
+}, { deep: true })
 
 // Focus time tracking
 const sessionStartTime = ref<number | null>(null)
