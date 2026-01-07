@@ -12,34 +12,48 @@
       <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-semibold">Tasks</h2>
-          <UButton
-            icon="i-heroicons-plus"
-            size="sm"
-            label="Add Task"
-            @click="openAddModal"
-          />
+          <div class="flex items-center gap-2">
+            <!-- Manage Tags Button -->
+            <UButton
+              icon="i-heroicons-tag"
+              size="sm"
+              color="gray"
+              variant="ghost"
+              label="Tags"
+              @click="isTagManagerOpen = true"
+            />
+            <UButton
+              icon="i-heroicons-plus"
+              size="sm"
+              label="Add Task"
+              @click="openAddModal"
+            />
+          </div>
         </div>
         
         <!-- Tag Filter -->
-        <div class="flex items-center gap-2 flex-wrap">
+        <div v-if="taskStore.customTags.length > 0" class="flex items-center gap-2 flex-wrap">
           <UButton
-            size="xs"
+            size="sm"
             :color="!taskStore.activeTagFilter ? 'primary' : 'gray'"
             :variant="!taskStore.activeTagFilter ? 'solid' : 'ghost'"
-            label="All"
+            label="Alle"
             @click="taskStore.setTagFilter(null)"
           />
           <UButton
-            v-for="tag in AVAILABLE_TAGS"
-            :key="tag.value"
-            size="xs"
-            :color="taskStore.activeTagFilter === tag.value ? tag.color : 'gray'"
-            :variant="taskStore.activeTagFilter === tag.value ? 'solid' : 'ghost'"
-            @click="taskStore.setTagFilter(tag.value)"
+            v-for="tag in taskStore.customTags"
+            :key="tag.id"
+            size="sm"
+            :color="taskStore.activeTagFilter === tag.id ? tag.color : 'gray'"
+            :variant="taskStore.activeTagFilter === tag.id ? 'solid' : 'ghost'"
+            @click="taskStore.setTagFilter(tag.id)"
           >
-            <span class="flex items-center gap-1">
-              <span class="w-2 h-2 rounded-full" :class="`bg-${tag.color}-500`"></span>
-              {{ tag.label }}
+            <span class="flex items-center gap-1.5">
+              <span 
+                class="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                :style="{ backgroundColor: getColorHex(tag.color) }"
+              ></span>
+              <span class="font-medium">{{ tag.name }}</span>
             </span>
           </UButton>
         </div>
@@ -92,7 +106,7 @@
                   @click="toggleExpand(task.id)"
                 >
                   <div class="flex items-center gap-2">
-                    <p class="text-gray-100 truncate">{{ task.title }}</p>
+                    <p class="text-gray-100 truncate font-medium">{{ task.title }}</p>
                     <!-- Expand Icon (only if subtasks exist) -->
                     <UIcon
                       v-if="task.subtasks.length > 0"
@@ -100,17 +114,20 @@
                       class="w-4 h-4 text-gray-400 flex-shrink-0"
                     />
                   </div>
-                  <div class="flex items-center gap-2 mt-1 flex-wrap">
-                    <!-- Tags -->
-                    <UBadge
-                      v-for="tagValue in (task.tags || [])"
-                      :key="tagValue"
-                      :color="getTagColor(tagValue)"
-                      variant="subtle"
-                      size="xs"
+                  <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <!-- Tags - Größer und besser lesbar -->
+                    <span
+                      v-for="tagId in (task.tags || [])"
+                      :key="tagId"
+                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold"
+                      :style="getTagStyle(tagId)"
                     >
-                      {{ getTagLabel(tagValue) }}
-                    </UBadge>
+                      <span 
+                        class="w-2 h-2 rounded-full" 
+                        :style="{ backgroundColor: getTagTextColor(tagId) }"
+                      ></span>
+                      {{ getTagName(tagId) }}
+                    </span>
                     <!-- Pomodoro Count -->
                     <span class="text-xs text-gray-500 flex items-center gap-1">
                       <UIcon name="i-heroicons-fire" class="w-3 h-3" />
@@ -127,14 +144,12 @@
                       {{ getCompletedSubtasks(task) }}/{{ task.subtasks.length }}
                     </span>
                     <!-- Active Badge -->
-                    <UBadge
+                    <span
                       v-if="task.is_active"
-                      color="primary"
-                      variant="soft"
-                      size="xs"
+                      class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold bg-primary-500/30 text-primary-300"
                     >
-                      Active
-                    </UBadge>
+                      ● Active
+                    </span>
                   </div>
                 </div>
 
@@ -335,23 +350,27 @@
           
           <!-- Tag Selection -->
           <UFormGroup label="Tags" :ui="{ label: { base: 'text-gray-300' } }">
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-for="tag in AVAILABLE_TAGS"
-                :key="tag.value"
-                size="xs"
-                :color="selectedTags.includes(tag.value) ? tag.color : 'gray'"
-                :variant="selectedTags.includes(tag.value) ? 'solid' : 'outline'"
-                @click="toggleTagSelection(tag.value)"
+            <div v-if="taskStore.customTags.length === 0" class="text-gray-500 text-sm py-2">
+              No tags yet. <button type="button" class="text-primary-400 hover:underline" @click="isTagManagerOpen = true">Create your first tag</button>
+            </div>
+            <div v-else class="flex flex-wrap gap-2">
+              <button
+                v-for="tag in taskStore.customTags"
+                :key="tag.id"
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
+                :class="selectedTags.includes(tag.id) 
+                  ? 'ring-2 ring-offset-2 ring-offset-gray-900' 
+                  : 'opacity-60 hover:opacity-100'"
+                :style="getTagButtonStyle(tag, selectedTags.includes(tag.id))"
+                @click="toggleTagSelection(tag.id)"
               >
-                <span class="flex items-center gap-1">
-                  <UIcon
-                    :name="selectedTags.includes(tag.value) ? 'i-heroicons-check' : 'i-heroicons-plus'"
-                    class="w-3 h-3"
-                  />
-                  {{ tag.label }}
-                </span>
-              </UButton>
+                <UIcon
+                  :name="selectedTags.includes(tag.id) ? 'i-heroicons-check-circle-solid' : 'i-heroicons-plus-circle'"
+                  class="w-4 h-4"
+                />
+                {{ tag.name }}
+              </button>
             </div>
           </UFormGroup>
         </form>
@@ -369,6 +388,116 @@
               :label="editingTask ? 'Save Changes' : 'Add Task'"
               :disabled="!taskTitle.trim()"
               @click="saveTask"
+            />
+          </div>
+        </template>
+      </UCard>
+    </UModal>
+
+    <!-- Tag Manager Modal -->
+    <UModal v-model="isTagManagerOpen">
+      <UCard
+        :ui="{
+          background: 'bg-gray-900',
+          ring: 'ring-1 ring-gray-800',
+          header: { background: 'bg-gray-900', base: 'text-gray-100' },
+          body: { background: 'bg-gray-900' },
+          footer: { background: 'bg-gray-900' }
+        }"
+      >
+        <template #header>
+          <h3 class="text-lg font-semibold text-gray-100">Manage Tags</h3>
+        </template>
+
+        <div class="space-y-4">
+          <!-- Create New Tag -->
+          <div class="space-y-3">
+            <label class="text-sm font-medium text-gray-300">Create New Tag</label>
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="newTagName"
+                placeholder="Tag name..."
+                size="sm"
+                color="gray"
+                variant="outline"
+                class="flex-1"
+                :ui="{
+                  base: 'bg-gray-800 text-gray-100',
+                  placeholder: 'placeholder-gray-500',
+                  color: {
+                    gray: {
+                      outline: 'bg-gray-800 text-gray-100 ring-gray-700 focus:ring-primary-500'
+                    }
+                  }
+                }"
+                @keyup.enter="createNewTag"
+              />
+              <UButton
+                icon="i-heroicons-plus"
+                size="sm"
+                color="primary"
+                :disabled="!newTagName.trim()"
+                @click="createNewTag"
+              />
+            </div>
+            
+            <!-- Color Selection -->
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="color in TAG_COLORS"
+                :key="color.value"
+                type="button"
+                class="w-8 h-8 rounded-full transition-all flex items-center justify-center"
+                :class="newTagColor === color.value ? 'ring-2 ring-offset-2 ring-offset-gray-900 ring-white scale-110' : 'hover:scale-105'"
+                :style="{ backgroundColor: color.hex }"
+                @click="newTagColor = color.value"
+              >
+                <UIcon 
+                  v-if="newTagColor === color.value" 
+                  name="i-heroicons-check" 
+                  class="w-4 h-4 text-white"
+                />
+              </button>
+            </div>
+          </div>
+
+          <!-- Existing Tags -->
+          <div v-if="taskStore.customTags.length > 0" class="space-y-2">
+            <label class="text-sm font-medium text-gray-300">Your Tags</label>
+            <ul class="space-y-2">
+              <li
+                v-for="tag in taskStore.customTags"
+                :key="tag.id"
+                class="flex items-center gap-3 p-2 rounded-lg bg-gray-800/50"
+              >
+                <span 
+                  class="w-4 h-4 rounded-full flex-shrink-0" 
+                  :style="{ backgroundColor: getColorHex(tag.color) }"
+                ></span>
+                <span class="flex-1 text-gray-200 font-medium">{{ tag.name }}</span>
+                <UButton
+                  icon="i-heroicons-trash"
+                  size="xs"
+                  color="red"
+                  variant="ghost"
+                  @click="taskStore.deleteTag(tag.id)"
+                />
+              </li>
+            </ul>
+          </div>
+          <div v-else class="text-center py-4 text-gray-500">
+            <UIcon name="i-heroicons-tag" class="w-8 h-8 mx-auto mb-2" />
+            <p>No tags yet. Create your first tag above!</p>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end">
+            <UButton
+              color="gray"
+              variant="ghost"
+              label="Close"
+              @click="isTagManagerOpen = false"
             />
           </div>
         </template>
@@ -416,18 +545,23 @@
 </template>
 
 <script setup lang="ts">
-import type { Task, LocalTask, TaskTag, TagColor } from '~/types'
-import { AVAILABLE_TAGS } from '~/types'
+import type { Task, LocalTask, CustomTag, TagColor } from '~/types'
+import { TAG_COLORS } from '~/types'
 
 const taskStore = useTaskStore()
 
 // Modal State
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
+const isTagManagerOpen = ref(false)
 const taskTitle = ref('')
-const selectedTags = ref<TaskTag[]>([])
+const selectedTags = ref<string[]>([])
 const editingTask = ref<Task | LocalTask | null>(null)
 const taskToDelete = ref<Task | LocalTask | null>(null)
+
+// Tag Manager State
+const newTagName = ref('')
+const newTagColor = ref<TagColor>('blue')
 
 // Expanded Task State (for viewing subtasks)
 const expandedTaskId = ref<string | null>(null)
@@ -435,26 +569,70 @@ const expandedTaskId = ref<string | null>(null)
 // New Subtask Input
 const newSubtaskTitle = ref('')
 
-// Get tag color by value
-function getTagColor(tagValue: TaskTag): TagColor {
-  const tag = AVAILABLE_TAGS.find(t => t.value === tagValue)
-  return tag?.color || 'gray' as TagColor
+// Get color hex value
+function getColorHex(color: TagColor): string {
+  const colorDef = TAG_COLORS.find(c => c.value === color)
+  return colorDef?.hex || '#6b7280'
 }
 
-// Get tag label by value
-function getTagLabel(tagValue: TaskTag): string {
-  const tag = AVAILABLE_TAGS.find(t => t.value === tagValue)
-  return tag?.label || tagValue
+// Get tag name by ID
+function getTagName(tagId: string): string {
+  const tag = taskStore.getTagById(tagId)
+  return tag?.name || 'Unknown'
+}
+
+// Get tag text color (for contrast)
+function getTagTextColor(tagId: string): string {
+  const tag = taskStore.getTagById(tagId)
+  if (!tag) return '#ffffff'
+  return '#ffffff'
+}
+
+// Get tag style for display
+function getTagStyle(tagId: string): Record<string, string> {
+  const tag = taskStore.getTagById(tagId)
+  if (!tag) return { backgroundColor: '#374151', color: '#9ca3af' }
+  
+  const hex = getColorHex(tag.color)
+  return {
+    backgroundColor: hex + '30', // 30% opacity
+    color: hex,
+    borderLeft: `3px solid ${hex}`
+  }
+}
+
+// Get tag button style for selection
+function getTagButtonStyle(tag: CustomTag, isSelected: boolean): Record<string, string> {
+  const hex = getColorHex(tag.color)
+  if (isSelected) {
+    return {
+      backgroundColor: hex,
+      color: '#ffffff',
+      ringColor: hex
+    }
+  }
+  return {
+    backgroundColor: hex + '20',
+    color: hex
+  }
 }
 
 // Toggle tag selection
-function toggleTagSelection(tagValue: TaskTag) {
-  const index = selectedTags.value.indexOf(tagValue)
+function toggleTagSelection(tagId: string) {
+  const index = selectedTags.value.indexOf(tagId)
   if (index === -1) {
-    selectedTags.value.push(tagValue)
+    selectedTags.value.push(tagId)
   } else {
     selectedTags.value.splice(index, 1)
   }
+}
+
+// Create new tag
+function createNewTag() {
+  if (!newTagName.value.trim()) return
+  taskStore.createTag(newTagName.value.trim(), newTagColor.value)
+  newTagName.value = ''
+  newTagColor.value = 'blue'
 }
 
 // Toggle Expand Subtasks

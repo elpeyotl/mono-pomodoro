@@ -1,10 +1,13 @@
 import { defineStore } from 'pinia'
 import { useStorage } from '@vueuse/core'
-import type { Task, LocalTask, Subtask, TaskTag } from '~/types'
+import type { Task, LocalTask, Subtask, CustomTag, TagColor } from '~/types'
 
 export const useTaskStore = defineStore('tasks', () => {
   // Lokale Tasks werden in localStorage gespeichert (Guest Mode)
   const localTasks = useStorage<LocalTask[]>('focus-app-tasks', [])
+  
+  // Benutzerdefinierte Tags
+  const customTags = useStorage<CustomTag[]>('focus-app-custom-tags', [])
   
   // Supabase User (wird von @nuxtjs/supabase bereitgestellt)
   const user = useSupabaseUser()
@@ -16,7 +19,7 @@ export const useTaskStore = defineStore('tasks', () => {
   const error = ref<string | null>(null)
   
   // Tag-Filter (null = alle anzeigen)
-  const activeTagFilter = useStorage<TaskTag | null>('focus-app-tag-filter', null)
+  const activeTagFilter = useStorage<string | null>('focus-app-tag-filter', null)
 
   // Computed: Aktive Datenquelle basierend auf Auth-Status
   const rawTasks = computed(() => {
@@ -62,8 +65,8 @@ export const useTaskStore = defineStore('tasks', () => {
   })
 
   // Tag-Filter setzen
-  function setTagFilter(tag: TaskTag | null): void {
-    activeTagFilter.value = tag
+  function setTagFilter(tagId: string | null): void {
+    activeTagFilter.value = tagId
   }
 
   // Helper: UUID generieren
@@ -76,10 +79,57 @@ export const useTaskStore = defineStore('tasks', () => {
     return new Date().toISOString()
   }
 
+  // ==================== Tag Operationen ====================
+
+  // Neuen Tag erstellen
+  function createTag(name: string, color: TagColor): CustomTag {
+    const newTag: CustomTag = {
+      id: generateId(),
+      name: name.trim(),
+      color
+    }
+    customTags.value.push(newTag)
+    return newTag
+  }
+
+  // Tag löschen
+  function deleteTag(tagId: string): void {
+    customTags.value = customTags.value.filter(t => t.id !== tagId)
+    // Tag auch von allen Tasks entfernen
+    if (user.value) {
+      supabaseTasks.value = supabaseTasks.value.map(task => ({
+        ...task,
+        tags: task.tags?.filter(t => t !== tagId) || []
+      }))
+    } else {
+      localTasks.value = localTasks.value.map(task => ({
+        ...task,
+        tags: task.tags?.filter(t => t !== tagId) || []
+      }))
+    }
+    // Filter zurücksetzen wenn der gelöschte Tag aktiv war
+    if (activeTagFilter.value === tagId) {
+      activeTagFilter.value = null
+    }
+  }
+
+  // Tag aktualisieren
+  function updateTag(tagId: string, updates: Partial<Omit<CustomTag, 'id'>>): void {
+    const index = customTags.value.findIndex(t => t.id === tagId)
+    if (index !== -1) {
+      customTags.value[index] = { ...customTags.value[index], ...updates }
+    }
+  }
+
+  // Tag nach ID finden
+  function getTagById(tagId: string): CustomTag | undefined {
+    return customTags.value.find(t => t.id === tagId)
+  }
+
   // ==================== CRUD Operationen ====================
 
   // Task erstellen (mit optionalen Tags)
-  async function addTask(title: string, tags: TaskTag[] = []): Promise<void> {
+  async function addTask(title: string, tags: string[] = []): Promise<void> {
     if (!title.trim()) return
 
     const newTask: LocalTask = {
@@ -367,16 +417,16 @@ export const useTaskStore = defineStore('tasks', () => {
   }, { immediate: true })
 
   // Tag zu einem Task hinzufügen/entfernen
-  async function toggleTag(taskId: string, tag: TaskTag): Promise<void> {
+  async function toggleTaskTag(taskId: string, tagId: string): Promise<void> {
     const task = tasks.value.find(t => t.id === taskId)
     if (!task) return
 
     const currentTags = task.tags || []
-    const hasTag = currentTags.includes(tag)
+    const hasTag = currentTags.includes(tagId)
     
     const updatedTags = hasTag
-      ? currentTags.filter(t => t !== tag)
-      : [...currentTags, tag]
+      ? currentTags.filter(t => t !== tagId)
+      : [...currentTags, tagId]
     
     await updateTask(taskId, { tags: updatedTags })
   }
@@ -392,6 +442,7 @@ export const useTaskStore = defineStore('tasks', () => {
     error,
     hasLocalTasks,
     activeTagFilter,
+    customTags,
     
     // Task Actions
     addTask,
@@ -404,7 +455,11 @@ export const useTaskStore = defineStore('tasks', () => {
     
     // Tag Actions
     setTagFilter,
-    toggleTag,
+    toggleTaskTag,
+    createTag,
+    deleteTag,
+    updateTag,
+    getTagById,
     
     // Subtask Actions
     addSubtask,

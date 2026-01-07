@@ -5,22 +5,27 @@ export interface Subtask {
   is_completed: boolean
 }
 
-// Vordefinierte Tags
-export type TaskTag = 'arbeit' | 'privat' | 'projekt' | 'lernen' | 'gesundheit'
-export type TagColor = 'blue' | 'green' | 'purple' | 'orange' | 'pink'
+// Benutzerdefinierte Tags
+export type TagColor = 'red' | 'orange' | 'yellow' | 'green' | 'teal' | 'blue' | 'indigo' | 'purple' | 'pink' | 'gray'
 
-export interface TagDefinition {
-  value: TaskTag
-  label: string
+export interface CustomTag {
+  id: string
+  name: string
   color: TagColor
 }
 
-export const AVAILABLE_TAGS: TagDefinition[] = [
-  { value: 'arbeit', label: 'Arbeit', color: 'blue' },
-  { value: 'privat', label: 'Privat', color: 'green' },
-  { value: 'projekt', label: 'Projekt', color: 'purple' },
-  { value: 'lernen', label: 'Lernen', color: 'orange' },
-  { value: 'gesundheit', label: 'Gesundheit', color: 'pink' }
+// Vordefinierte Farben für Tags
+export const TAG_COLORS: { value: TagColor; label: string; hex: string }[] = [
+  { value: 'red', label: 'Rot', hex: '#ef4444' },
+  { value: 'orange', label: 'Orange', hex: '#f97316' },
+  { value: 'yellow', label: 'Gelb', hex: '#eab308' },
+  { value: 'green', label: 'Grün', hex: '#22c55e' },
+  { value: 'teal', label: 'Türkis', hex: '#14b8a6' },
+  { value: 'blue', label: 'Blau', hex: '#3b82f6' },
+  { value: 'indigo', label: 'Indigo', hex: '#6366f1' },
+  { value: 'purple', label: 'Lila', hex: '#a855f7' },
+  { value: 'pink', label: 'Pink', hex: '#ec4899' },
+  { value: 'gray', label: 'Grau', hex: '#6b7280' }
 ]
 
 export interface Task {
@@ -28,7 +33,7 @@ export interface Task {
   user_id: string | null
   title: string
   subtasks: Subtask[]  // Checkliste mit Subtasks
-  tags: TaskTag[]      // Tags für Kategorisierung
+  tags: string[]       // Array von Tag-IDs
   is_completed: boolean
   pomodoro_count: number
   total_focus_time: number  // Gesamte Focus-Zeit in Sekunden
