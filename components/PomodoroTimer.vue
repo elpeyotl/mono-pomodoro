@@ -363,12 +363,12 @@ const modeLabel = computed(() => {
   }
 })
 
-// Progress color based on mode
+// Progress color based on mode - matching the wave background colors
 const progressColorClass = computed(() => {
   switch (currentMode.value) {
-    case 'focus': return 'text-primary-500'
-    case 'shortBreak': return 'text-green-500'
-    case 'longBreak': return 'text-blue-500'
+    case 'focus': return 'text-primary-500'    // Turquoise/teal (original)
+    case 'shortBreak': return 'text-blue-400'  // Bright blue
+    case 'longBreak': return 'text-purple-400' // Purple
   }
 })
 
@@ -514,10 +514,8 @@ function skipTimer() {
 
 function switchToNextMode(completed: boolean) {
   if (currentMode.value === 'focus') {
-    if (completed) {
-      // Increment pomodoro count only if completed (not skipped)
-      pomodoroCount.value++
-    }
+    // Always increment pomodoro count when leaving focus mode (skip or complete)
+    pomodoroCount.value++
     
     // Check if it's time for a long break
     if (pomodoroCount.value >= savedSettings.value.longBreakInterval) {
