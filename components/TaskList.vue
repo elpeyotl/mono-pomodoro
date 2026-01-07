@@ -77,190 +77,205 @@
     <div v-else class="divide-y divide-gray-800">
       <!-- Pending Tasks -->
       <div v-if="taskStore.pendingTasks.length > 0" class="py-2">
-        <h3 class="text-sm font-medium text-gray-400 mb-2 px-1">To Do ({{ taskStore.pendingTasks.length }})</h3>
-        <ul class="space-y-2">
-          <li 
-            v-for="task in taskStore.pendingTasks" 
-            :key="task.id"
-            class="group"
-          >
-            <div
-              class="rounded-lg transition-colors"
-              :class="[
-                task.is_active
-                  ? 'bg-primary-500/20 ring-1 ring-primary-500/50'
-                  : 'bg-gray-700/50 hover:bg-gray-700/80'
-              ]"
-            >
-              <!-- Main Task Row -->
-              <div class="flex items-center gap-3 p-3">
-                <!-- Checkbox -->
-                <UCheckbox 
-                  :model-value="task.is_completed"
-                  @update:model-value="taskStore.toggleComplete(task.id)"
-                  color="primary"
-                />
-                
-                <!-- Task Content (clickable to expand) -->
-                <div 
-                  class="flex-1 min-w-0 cursor-pointer"
-                  @click="toggleExpand(task.id)"
-                >
-                  <div class="flex items-center gap-2">
-                    <p class="text-gray-100 truncate font-medium">{{ task.title }}</p>
-                    <!-- Expand Icon (only if subtasks exist) -->
-                    <UIcon
-                      v-if="task.subtasks.length > 0"
-                      :name="expandedTaskId === task.id ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                      class="w-4 h-4 text-gray-400 flex-shrink-0"
-                    />
-                  </div>
-                  <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-                    <!-- Tags - Größer und besser lesbar -->
-                    <span
-                      v-for="tagId in (task.tags || [])"
-                      :key="tagId"
-                      class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold"
-                      :style="getTagStyle(tagId)"
-                    >
-                      <span 
-                        class="w-2 h-2 rounded-full" 
-                        :style="{ backgroundColor: getTagTextColor(tagId) }"
-                      ></span>
-                      {{ getTagName(tagId) }}
-                    </span>
-                    <!-- Pomodoro Count -->
-                    <span class="text-xs text-gray-300 flex items-center gap-1">
-                      <UIcon name="i-heroicons-fire" class="w-3 h-3 text-orange-400" />
-                      {{ task.pomodoro_count }} pomodoros
-                    </span>
-                    <!-- Total Focus Time -->
-                    <span v-if="task.total_focus_time > 0" class="text-xs text-gray-300 flex items-center gap-1">
-                      <UIcon name="i-heroicons-clock" class="w-3 h-3 text-blue-400" />
-                      {{ formatFocusTime(task.total_focus_time) }}
-                    </span>
-                    <!-- Subtask Progress -->
-                    <span v-if="task.subtasks.length > 0" class="text-xs text-gray-300 flex items-center gap-1">
-                      <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
-                      {{ getCompletedSubtasks(task) }}/{{ task.subtasks.length }}
-                    </span>
-                    <!-- Active Badge -->
-                    <span
-                      v-if="task.is_active"
-                      class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold bg-primary-500/30 text-primary-300"
-                    >
-                      ● Active
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <!-- Set Active Button -->
-                  <UTooltip :text="task.is_active ? 'Deactivate' : 'Set as active'">
-                    <UButton
-                      :icon="task.is_active ? 'i-heroicons-pause' : 'i-heroicons-play'"
-                      size="xs"
-                      color="primary"
-                      :variant="task.is_active ? 'soft' : 'outline'"
-                      @click="toggleActive(task)"
-                    />
-                  </UTooltip>
-                  
-                  <!-- Edit Button -->
-                  <UTooltip text="Edit">
-                    <UButton
-                      icon="i-heroicons-pencil"
-                      size="xs"
-                      color="primary"
-                      variant="outline"
-                      @click="openEditModal(task)"
-                    />
-                  </UTooltip>
-                  
-                  <!-- Delete Button -->
-                  <UTooltip text="Delete">
-                    <UButton
-                      icon="i-heroicons-trash"
-                      size="xs"
-                      color="red"
-                      variant="outline"
-                      @click="confirmDelete(task)"
-                    />
-                  </UTooltip>
-                </div>
-              </div>
-              
-              <!-- Expanded Subtasks Section -->
-              <div 
-                v-if="expandedTaskId === task.id"
-                class="px-3 pb-3 pt-0"
+        <h3 class="text-sm font-medium text-gray-400 mb-2 px-1 flex items-center gap-2">
+          To Do ({{ taskStore.pendingTasks.length }})
+          <span class="text-xs text-gray-500 font-normal">
+            <UIcon name="i-heroicons-arrows-up-down" class="w-3 h-3 inline" /> Drag to reorder
+          </span>
+        </h3>
+        <draggable
+          v-model="pendingTasksLocal"
+          item-key="id"
+          handle=".drag-handle"
+          ghost-class="opacity-50"
+          animation="200"
+          @end="onDragEnd"
+        >
+          <template #item="{ element: task }">
+            <div class="group mb-2">
+              <div
+                class="rounded-lg transition-colors"
+                :class="[
+                  task.is_active
+                    ? 'bg-primary-500/20 ring-1 ring-primary-500/50'
+                    : 'bg-gray-700/50 hover:bg-gray-700/80'
+                ]"
               >
-                <div class="bg-gray-800/50 rounded-lg p-3 ml-8">
-                  <!-- Subtask List -->
-                  <ul v-if="task.subtasks.length > 0" class="space-y-2 mb-3">
-                    <li
-                      v-for="subtask in task.subtasks"
-                      :key="subtask.id"
-                      class="flex items-center gap-2 group/subtask"
-                    >
-                      <UCheckbox
-                        :model-value="subtask.is_completed"
-                        @update:model-value="taskStore.toggleSubtaskComplete(task.id, subtask.id)"
-                        color="primary"
-                        :ui="{ base: 'w-4 h-4' }"
-                      />
-                      <span 
-                        class="flex-1 text-sm"
-                        :class="subtask.is_completed ? 'text-gray-500 line-through' : 'text-gray-300'"
-                      >
-                        {{ subtask.title }}
-                      </span>
-                      <UButton
-                        icon="i-heroicons-x-mark"
-                        size="2xs"
-                        color="gray"
-                        variant="ghost"
-                        class="opacity-0 group-hover/subtask:opacity-100"
-                        @click="taskStore.deleteSubtask(task.id, subtask.id)"
-                      />
-                    </li>
-                  </ul>
+                <!-- Main Task Row -->
+                <div class="flex items-center gap-3 p-3">
+                  <!-- Drag Handle -->
+                  <div class="drag-handle cursor-grab active:cursor-grabbing text-gray-500 hover:text-gray-300 transition-colors">
+                    <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+                  </div>
                   
-                  <!-- Add Subtask Input -->
-                  <div class="flex items-center gap-2">
-                    <UInput
-                      v-model="newSubtaskTitle"
-                      placeholder="Add a subtask..."
-                      size="sm"
-                      color="gray"
-                      variant="outline"
-                      class="flex-1"
-                      :ui="{
-                        base: 'bg-gray-700 text-gray-100',
-                        placeholder: 'placeholder-gray-500',
-                        color: {
-                          gray: {
-                            outline: 'bg-gray-700 text-gray-100 ring-gray-600 focus:ring-primary-500'
+                  <!-- Checkbox -->
+                  <UCheckbox
+                    :model-value="task.is_completed"
+                    @update:model-value="taskStore.toggleComplete(task.id)"
+                    color="primary"
+                  />
+                
+                  <!-- Task Content (clickable to expand) -->
+                  <div
+                    class="flex-1 min-w-0 cursor-pointer"
+                    @click="toggleExpand(task.id)"
+                  >
+                    <div class="flex items-center gap-2">
+                      <p class="text-gray-100 truncate font-medium">{{ task.title }}</p>
+                      <!-- Expand Icon (only if subtasks exist) -->
+                      <UIcon
+                        v-if="task.subtasks.length > 0"
+                        :name="expandedTaskId === task.id ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                        class="w-4 h-4 text-gray-400 flex-shrink-0"
+                      />
+                    </div>
+                    <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <!-- Tags - Größer und besser lesbar -->
+                      <span
+                        v-for="tagId in (task.tags || [])"
+                        :key="tagId"
+                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-semibold"
+                        :style="getTagStyle(tagId)"
+                      >
+                        <span
+                          class="w-2 h-2 rounded-full"
+                          :style="{ backgroundColor: getTagTextColor(tagId) }"
+                        ></span>
+                        {{ getTagName(tagId) }}
+                      </span>
+                      <!-- Pomodoro Count -->
+                      <span class="text-xs text-gray-300 flex items-center gap-1">
+                        <UIcon name="i-heroicons-fire" class="w-3 h-3 text-orange-400" />
+                        {{ task.pomodoro_count }} pomodoros
+                      </span>
+                      <!-- Total Focus Time -->
+                      <span v-if="task.total_focus_time > 0" class="text-xs text-gray-300 flex items-center gap-1">
+                        <UIcon name="i-heroicons-clock" class="w-3 h-3 text-blue-400" />
+                        {{ formatFocusTime(task.total_focus_time) }}
+                      </span>
+                      <!-- Subtask Progress -->
+                      <span v-if="task.subtasks.length > 0" class="text-xs text-gray-300 flex items-center gap-1">
+                        <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
+                        {{ getCompletedSubtasks(task) }}/{{ task.subtasks.length }}
+                      </span>
+                      <!-- Active Badge -->
+                      <span
+                        v-if="task.is_active"
+                        class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold bg-primary-500/30 text-primary-300"
+                      >
+                        ● Active
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <!-- Set Active Button -->
+                    <UTooltip :text="task.is_active ? 'Deactivate' : 'Start Focus'">
+                      <UButton
+                        :icon="task.is_active ? 'i-heroicons-pause' : 'i-heroicons-play'"
+                        size="xs"
+                        color="primary"
+                        :variant="task.is_active ? 'soft' : 'outline'"
+                        @click="toggleActive(task)"
+                      />
+                    </UTooltip>
+                    
+                    <!-- Edit Button -->
+                    <UTooltip text="Edit">
+                      <UButton
+                        icon="i-heroicons-pencil"
+                        size="xs"
+                        color="primary"
+                        variant="outline"
+                        @click="openEditModal(task)"
+                      />
+                    </UTooltip>
+                    
+                    <!-- Delete Button -->
+                    <UTooltip text="Delete">
+                      <UButton
+                        icon="i-heroicons-trash"
+                        size="xs"
+                        color="red"
+                        variant="outline"
+                        @click="confirmDelete(task)"
+                      />
+                    </UTooltip>
+                  </div>
+                </div>
+                
+                <!-- Expanded Subtasks Section -->
+                <div
+                  v-if="expandedTaskId === task.id"
+                  class="px-3 pb-3 pt-0"
+                >
+                  <div class="bg-gray-800/50 rounded-lg p-3 ml-12">
+                    <!-- Subtask List -->
+                    <ul v-if="task.subtasks.length > 0" class="space-y-2 mb-3">
+                      <li
+                        v-for="subtask in task.subtasks"
+                        :key="subtask.id"
+                        class="flex items-center gap-2 group/subtask"
+                      >
+                        <UCheckbox
+                          :model-value="subtask.is_completed"
+                          @update:model-value="taskStore.toggleSubtaskComplete(task.id, subtask.id)"
+                          color="primary"
+                          :ui="{ base: 'w-4 h-4' }"
+                        />
+                        <span
+                          class="flex-1 text-sm"
+                          :class="subtask.is_completed ? 'text-gray-500 line-through' : 'text-gray-300'"
+                        >
+                          {{ subtask.title }}
+                        </span>
+                        <UButton
+                          icon="i-heroicons-x-mark"
+                          size="2xs"
+                          color="gray"
+                          variant="ghost"
+                          class="opacity-0 group-hover/subtask:opacity-100"
+                          @click="taskStore.deleteSubtask(task.id, subtask.id)"
+                        />
+                      </li>
+                    </ul>
+                    
+                    <!-- Add Subtask Input -->
+                    <div class="flex items-center gap-2">
+                      <UInput
+                        v-model="newSubtaskTitle"
+                        placeholder="Add a subtask..."
+                        size="sm"
+                        color="gray"
+                        variant="outline"
+                        class="flex-1"
+                        :ui="{
+                          base: 'bg-gray-700 text-gray-100',
+                          placeholder: 'placeholder-gray-500',
+                          color: {
+                            gray: {
+                              outline: 'bg-gray-700 text-gray-100 ring-gray-600 focus:ring-primary-500'
+                            }
                           }
-                        }
-                      }"
-                      @keyup.enter="addSubtaskToTask(task.id)"
-                    />
-                    <UButton
-                      icon="i-heroicons-plus"
-                      size="sm"
-                      color="primary"
-                      variant="soft"
-                      :disabled="!newSubtaskTitle.trim()"
-                      @click="addSubtaskToTask(task.id)"
-                    />
+                        }"
+                        @keyup.enter="addSubtaskToTask(task.id)"
+                      />
+                      <UButton
+                        icon="i-heroicons-plus"
+                        size="sm"
+                        color="primary"
+                        variant="soft"
+                        :disabled="!newSubtaskTitle.trim()"
+                        @click="addSubtaskToTask(task.id)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </li>
-        </ul>
+          </template>
+        </draggable>
       </div>
 
       <!-- Completed Tasks -->
@@ -548,8 +563,10 @@
 <script setup lang="ts">
 import type { Task, LocalTask, CustomTag, TagColor } from '~/types'
 import { TAG_COLORS } from '~/types'
+import draggable from 'vuedraggable'
 
 const taskStore = useTaskStore()
+const timerStore = useTimerStore()
 
 // Modal State
 const isModalOpen = ref(false)
@@ -569,6 +586,20 @@ const expandedTaskId = ref<string | null>(null)
 
 // New Subtask Input
 const newSubtaskTitle = ref('')
+
+// Local copy of pending tasks for drag & drop
+const pendingTasksLocal = ref<(Task | LocalTask)[]>([])
+
+// Sync pendingTasksLocal with store
+watch(() => taskStore.pendingTasks, (newTasks) => {
+  pendingTasksLocal.value = [...newTasks]
+}, { immediate: true, deep: true })
+
+// Handle drag end - save new order
+async function onDragEnd() {
+  const taskIds = pendingTasksLocal.value.map(t => t.id)
+  await taskStore.reorderTasks(taskIds)
+}
 
 // Get color hex value
 function getColorHex(color: TagColor): string {
@@ -730,12 +761,23 @@ async function saveTask() {
   closeModal()
 }
 
-// Toggle Active State
+// Toggle Active State and auto-start timer
 async function toggleActive(task: Task | LocalTask) {
   if (task.is_active) {
+    // Deactivate task
     await taskStore.setActiveTask(null)
   } else {
+    // Activate task and start timer
     await taskStore.setActiveTask(task.id)
+    
+    // Auto-start timer if not already running
+    if (!timerStore.isRunning) {
+      // Switch to focus mode if in break
+      if (timerStore.currentMode !== 'focus') {
+        timerStore.setMode('focus')
+      }
+      timerStore.setRunning(true)
+    }
   }
 }
 

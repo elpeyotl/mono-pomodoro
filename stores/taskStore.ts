@@ -6,20 +6,29 @@ export const useTaskStore = defineStore('tasks', () => {
   // Lokale Tasks werden in localStorage gespeichert (Guest Mode)
   const localTasks = useStorage<LocalTask[]>('focus-app-tasks', [])
   
-  // Benutzerdefinierte Tags
-  const customTags = useStorage<CustomTag[]>('focus-app-custom-tags', [])
+  // Benutzerdefinierte Tags (lokal für Guest Mode)
+  const localTags = useStorage<CustomTag[]>('focus-app-custom-tags', [])
   
   // Supabase User (wird von @nuxtjs/supabase bereitgestellt)
   const user = useSupabaseUser()
   const supabase = useSupabaseClient() as any // Type assertion for untyped Supabase
   
-  // Supabase Tasks (für eingeloggte User)
+  // Supabase Tasks und Tags (für eingeloggte User)
   const supabaseTasks = ref<Task[]>([])
+  const supabaseTags = ref<CustomTag[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
   
   // Tag-Filter (null = alle anzeigen)
   const activeTagFilter = useStorage<string | null>('focus-app-tag-filter', null)
+
+  // Computed: Aktive Tags basierend auf Auth-Status
+  const customTags = computed(() => {
+    if (user.value) {
+      return supabaseTags.value
+    }
+    return localTags.value
+  })
 
   // Computed: Aktive Datenquelle basierend auf Auth-Status
   const rawTasks = computed(() => {
@@ -29,13 +38,14 @@ export const useTaskStore = defineStore('tasks', () => {
     return localTasks.value as Task[]
   })
 
-  // Computed: Sortierte Tasks (aktiver Task oben, dann nach Erstellungsdatum)
+  // Computed: Sortierte Tasks nach sort_order (manuelle Reihenfolge)
   const tasks = computed(() => {
     const sorted = [...rawTasks.value].sort((a, b) => {
-      // Aktiver Task immer oben
-      if (a.is_active && !b.is_active) return -1
-      if (!a.is_active && b.is_active) return 1
-      // Dann nach Erstellungsdatum (neueste zuerst)
+      // Sortierung nach sort_order (niedrigere Werte zuerst)
+      const orderA = a.sort_order ?? 999999
+      const orderB = b.sort_order ?? 999999
+      if (orderA !== orderB) return orderA - orderB
+      // Fallback: nach Erstellungsdatum (neueste zuerst)
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
     return sorted
@@ -81,32 +91,97 @@ export const useTaskStore = defineStore('tasks', () => {
 
   // ==================== Tag Operationen ====================
 
+  // Tags von Supabase laden
+  async function fetchTags(): Promise<void> {
+    if (!user.value) return
+
+    try {
+      const { data, error: supabaseError } = await supabase
+        .from('tags')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      if (supabaseError) throw supabaseError
+      supabaseTags.value = (data || []).map((tag: any) => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color as TagColor
+      }))
+    } catch (e: any) {
+      console.error('Error fetching tags:', e)
+    }
+  }
+
   // Neuen Tag erstellen
-  function createTag(name: string, color: TagColor): CustomTag {
+  async function createTag(name: string, color: TagColor): Promise<CustomTag> {
     const newTag: CustomTag = {
       id: generateId(),
       name: name.trim(),
       color
     }
-    customTags.value.push(newTag)
+
+    if (user.value) {
+      // Supabase: Tag mit user_id erstellen
+      try {
+        const { data, error: supabaseError } = await supabase
+          .from('tags')
+          .insert({
+            id: newTag.id,
+            user_id: user.value.id,
+            name: newTag.name,
+            color: newTag.color
+          })
+          .select()
+          .single()
+
+        if (supabaseError) throw supabaseError
+        if (data) {
+          supabaseTags.value.push({
+            id: data.id,
+            name: data.name,
+            color: data.color as TagColor
+          })
+        }
+      } catch (e: any) {
+        console.error('Error creating tag:', e)
+      }
+    } else {
+      // localStorage: Tag lokal speichern
+      localTags.value.push(newTag)
+    }
+
     return newTag
   }
 
   // Tag löschen
-  function deleteTag(tagId: string): void {
-    customTags.value = customTags.value.filter(t => t.id !== tagId)
-    // Tag auch von allen Tasks entfernen
+  async function deleteTag(tagId: string): Promise<void> {
     if (user.value) {
+      // Supabase: Tag löschen
+      try {
+        const { error: supabaseError } = await supabase
+          .from('tags')
+          .delete()
+          .eq('id', tagId)
+
+        if (supabaseError) throw supabaseError
+        supabaseTags.value = supabaseTags.value.filter(t => t.id !== tagId)
+      } catch (e: any) {
+        console.error('Error deleting tag:', e)
+      }
+
+      // Tag auch von allen Tasks entfernen
       supabaseTasks.value = supabaseTasks.value.map(task => ({
         ...task,
         tags: task.tags?.filter(t => t !== tagId) || []
       }))
     } else {
+      localTags.value = localTags.value.filter(t => t.id !== tagId)
       localTasks.value = localTasks.value.map(task => ({
         ...task,
         tags: task.tags?.filter(t => t !== tagId) || []
       }))
     }
+
     // Filter zurücksetzen wenn der gelöschte Tag aktiv war
     if (activeTagFilter.value === tagId) {
       activeTagFilter.value = null
@@ -114,10 +189,31 @@ export const useTaskStore = defineStore('tasks', () => {
   }
 
   // Tag aktualisieren
-  function updateTag(tagId: string, updates: Partial<Omit<CustomTag, 'id'>>): void {
-    const index = customTags.value.findIndex(t => t.id === tagId)
-    if (index !== -1) {
-      customTags.value[index] = { ...customTags.value[index], ...updates }
+  async function updateTag(tagId: string, updates: Partial<Omit<CustomTag, 'id'>>): Promise<void> {
+    if (user.value) {
+      try {
+        const { error: supabaseError } = await supabase
+          .from('tags')
+          .update({
+            ...updates,
+            updated_at: now()
+          })
+          .eq('id', tagId)
+
+        if (supabaseError) throw supabaseError
+
+        const index = supabaseTags.value.findIndex(t => t.id === tagId)
+        if (index !== -1) {
+          supabaseTags.value[index] = { ...supabaseTags.value[index], ...updates }
+        }
+      } catch (e: any) {
+        console.error('Error updating tag:', e)
+      }
+    } else {
+      const index = localTags.value.findIndex(t => t.id === tagId)
+      if (index !== -1) {
+        localTags.value[index] = { ...localTags.value[index], ...updates }
+      }
     }
   }
 
@@ -126,7 +222,52 @@ export const useTaskStore = defineStore('tasks', () => {
     return customTags.value.find(t => t.id === tagId)
   }
 
+  // Lokale Tags zu Supabase migrieren (nach Login)
+  async function syncLocalTagsToSupabase(): Promise<{ synced: number; errors: number }> {
+    if (!user.value || localTags.value.length === 0) {
+      return { synced: 0, errors: 0 }
+    }
+
+    let synced = 0
+    let errors = 0
+
+    for (const localTag of localTags.value) {
+      try {
+        const { error: supabaseError } = await supabase
+          .from('tags')
+          .insert({
+            id: localTag.id,
+            user_id: user.value.id,
+            name: localTag.name,
+            color: localTag.color
+          })
+
+        if (supabaseError) throw supabaseError
+        synced++
+      } catch (e) {
+        console.error('Error syncing tag:', e)
+        errors++
+      }
+    }
+
+    // Nach erfolgreicher Sync: lokale Tags löschen und neu laden
+    if (synced > 0) {
+      localTags.value = []
+      await fetchTags()
+    }
+
+    return { synced, errors }
+  }
+
   // ==================== CRUD Operationen ====================
+
+  // Helper: Nächste sort_order berechnen (am Anfang der Liste)
+  function getNextSortOrder(): number {
+    const allTasks = rawTasks.value
+    if (allTasks.length === 0) return 0
+    const minOrder = Math.min(...allTasks.map(t => t.sort_order ?? 0))
+    return minOrder - 1
+  }
 
   // Task erstellen (mit optionalen Tags)
   async function addTask(title: string, tags: string[] = []): Promise<void> {
@@ -141,6 +282,7 @@ export const useTaskStore = defineStore('tasks', () => {
       pomodoro_count: 0,
       total_focus_time: 0,
       is_active: false,
+      sort_order: getNextSortOrder(),
       created_at: now(),
       updated_at: now()
     }
@@ -367,36 +509,44 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  // Lokale Tasks zu Supabase migrieren (nach Login)
+  // Lokale Tasks und Tags zu Supabase migrieren (nach Login)
   async function syncLocalToSupabase(): Promise<{ synced: number; errors: number }> {
-    if (!user.value || localTasks.value.length === 0) {
+    if (!user.value) {
       return { synced: 0, errors: 0 }
     }
 
     let synced = 0
     let errors = 0
 
-    for (const localTask of localTasks.value) {
-      try {
-        const { error: supabaseError } = await supabase
-          .from('tasks')
-          .insert({
-            ...localTask,
-            user_id: user.value.id
-          })
+    // Zuerst Tags synchronisieren
+    const tagResult = await syncLocalTagsToSupabase()
+    synced += tagResult.synced
+    errors += tagResult.errors
 
-        if (supabaseError) throw supabaseError
-        synced++
-      } catch (e) {
-        console.error('Error syncing task:', e)
-        errors++
+    // Dann Tasks synchronisieren
+    if (localTasks.value.length > 0) {
+      for (const localTask of localTasks.value) {
+        try {
+          const { error: supabaseError } = await supabase
+            .from('tasks')
+            .insert({
+              ...localTask,
+              user_id: user.value.id
+            })
+
+          if (supabaseError) throw supabaseError
+          synced++
+        } catch (e) {
+          console.error('Error syncing task:', e)
+          errors++
+        }
       }
-    }
 
-    // Nach erfolgreicher Sync: lokale Tasks löschen und neu laden
-    if (synced > 0) {
-      localTasks.value = []
-      await fetchTasks()
+      // Nach erfolgreicher Sync: lokale Tasks löschen und neu laden
+      if (synced > tagResult.synced) {
+        localTasks.value = []
+        await fetchTasks()
+      }
     }
 
     return { synced, errors }
@@ -407,12 +557,13 @@ export const useTaskStore = defineStore('tasks', () => {
 
   // ==================== Watchers ====================
 
-  // Bei User-Änderung Tasks laden
+  // Bei User-Änderung Tasks und Tags laden
   watch(user, async (newUser) => {
     if (newUser) {
-      await fetchTasks()
+      await Promise.all([fetchTasks(), fetchTags()])
     } else {
       supabaseTasks.value = []
+      supabaseTags.value = []
     }
   }, { immediate: true })
 
@@ -431,6 +582,66 @@ export const useTaskStore = defineStore('tasks', () => {
     await updateTask(taskId, { tags: updatedTags })
   }
 
+  // ==================== Drag & Drop Sortierung ====================
+
+  // Tasks neu sortieren nach Drag & Drop
+  async function reorderTasks(reorderedTaskIds: string[]): Promise<void> {
+    // Neue sort_order Werte zuweisen
+    const updates: { id: string; sort_order: number }[] = reorderedTaskIds.map((id, index) => ({
+      id,
+      sort_order: index
+    }))
+
+    if (user.value) {
+      // Supabase: Batch-Update
+      isLoading.value = true
+      error.value = null
+      
+      try {
+        for (const update of updates) {
+          const { error: supabaseError } = await supabase
+            .from('tasks')
+            .update({ sort_order: update.sort_order, updated_at: now() })
+            .eq('id', update.id)
+
+          if (supabaseError) throw supabaseError
+        }
+        
+        // Lokalen State aktualisieren
+        for (const update of updates) {
+          const index = supabaseTasks.value.findIndex(t => t.id === update.id)
+          if (index !== -1) {
+            supabaseTasks.value[index] = {
+              ...supabaseTasks.value[index],
+              sort_order: update.sort_order,
+              updated_at: now()
+            }
+          }
+        }
+      } catch (e: any) {
+        error.value = e.message
+        console.error('Error reordering tasks:', e)
+      } finally {
+        isLoading.value = false
+      }
+    } else {
+      // localStorage: Direkt aktualisieren
+      for (const update of updates) {
+        const index = localTasks.value.findIndex(t => t.id === update.id)
+        if (index !== -1) {
+          localTasks.value[index] = {
+            ...localTasks.value[index],
+            sort_order: update.sort_order,
+            updated_at: now()
+          }
+        }
+      }
+    }
+  }
+
+  // Prüfen ob lokale Tags existieren (für Sync-Prompt)
+  const hasLocalTags = computed(() => localTags.value.length > 0)
+
   return {
     // State
     tasks,
@@ -441,6 +652,7 @@ export const useTaskStore = defineStore('tasks', () => {
     isLoading,
     error,
     hasLocalTasks,
+    hasLocalTags,
     activeTagFilter,
     customTags,
     
@@ -452,6 +664,7 @@ export const useTaskStore = defineStore('tasks', () => {
     setActiveTask,
     incrementPomodoro,
     addFocusTime,
+    reorderTasks,
     
     // Tag Actions
     setTagFilter,
@@ -460,6 +673,7 @@ export const useTaskStore = defineStore('tasks', () => {
     deleteTag,
     updateTag,
     getTagById,
+    fetchTags,
     
     // Subtask Actions
     addSubtask,

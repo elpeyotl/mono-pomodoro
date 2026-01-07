@@ -15,16 +15,16 @@
             <UIcon name="i-heroicons-cloud-arrow-up" class="w-6 h-6 text-primary-400" />
           </div>
           <div>
-            <h3 class="text-lg font-semibold text-gray-100">Lokale Tasks gefunden</h3>
-            <p class="text-sm text-gray-400">Du hast {{ localTaskCount }} Tasks im Guest-Modus erstellt</p>
+            <h3 class="text-lg font-semibold text-gray-100">Lokale Daten gefunden</h3>
+            <p class="text-sm text-gray-400">Du hast {{ localTaskCount }} Tasks und {{ localTagCount }} Tags im Guest-Modus erstellt</p>
           </div>
         </div>
       </template>
 
       <div class="space-y-4">
         <p class="text-gray-300">
-          Möchtest du deine lokalen Tasks mit deinem Account synchronisieren? 
-          Nach der Synchronisation werden alle Tasks in der Cloud gespeichert und sind auf allen Geräten verfügbar.
+          Möchtest du deine lokalen Daten mit deinem Account synchronisieren?
+          Nach der Synchronisation werden alle Tasks und Tags in der Cloud gespeichert und sind auf allen Geräten verfügbar.
         </p>
         
         <!-- Preview of local tasks -->
@@ -105,9 +105,11 @@ const isSyncing = ref(false)
 const syncResult = ref<'success' | 'partial' | 'error' | null>(null)
 const syncStats = ref({ synced: 0, errors: 0 })
 
-// Local tasks from storage
+// Local tasks and tags from storage
 const localTasks = useStorage<LocalTask[]>('focus-app-tasks', [])
+const localTags = useStorage<any[]>('focus-app-custom-tags', [])
 const localTaskCount = computed(() => localTasks.value.length)
+const localTagCount = computed(() => localTags.value.length)
 const previewTasks = computed(() => localTasks.value.slice(0, 5))
 
 // Sync result UI
@@ -131,17 +133,17 @@ const syncResultIcon = computed(() => {
 
 const syncResultMessage = computed(() => {
   switch (syncResult.value) {
-    case 'success': return `${syncStats.value.synced} Tasks erfolgreich synchronisiert!`
+    case 'success': return `${syncStats.value.synced} Elemente erfolgreich synchronisiert!`
     case 'partial': return `${syncStats.value.synced} synchronisiert, ${syncStats.value.errors} Fehler`
     case 'error': return 'Synchronisation fehlgeschlagen. Bitte versuche es erneut.'
     default: return ''
   }
 })
 
-// Watch for user login with local tasks
-watch([user, () => taskStore.hasLocalTasks], ([newUser, hasLocal]) => {
-  if (newUser && hasLocal && !syncOffered.value) {
-    // User just logged in and has local tasks
+// Watch for user login with local tasks or tags
+watch([user, () => taskStore.hasLocalTasks, () => taskStore.hasLocalTags], ([newUser, hasLocalTasks, hasLocalTags]) => {
+  if (newUser && (hasLocalTasks || hasLocalTags) && !syncOffered.value) {
+    // User just logged in and has local data
     isOpen.value = true
   }
 }, { immediate: true })
@@ -181,13 +183,14 @@ function skipSync() {
 
 function deleteLocalTasks() {
   localTasks.value = []
+  localTags.value = []
   syncOffered.value = true
   isOpen.value = false
 }
 
 // Expose method to manually trigger sync dialog
 function openSyncDialog() {
-  if (user.value && localTaskCount.value > 0) {
+  if (user.value && (localTaskCount.value > 0 || localTagCount.value > 0)) {
     syncOffered.value = false
     isOpen.value = true
   }

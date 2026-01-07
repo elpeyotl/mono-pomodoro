@@ -638,6 +638,21 @@ watch(isRunning, (running) => {
   timerStore.setRunning(running)
 }, { immediate: true })
 
+// Watch for external timer start requests (e.g., from TaskList when activating a task)
+watch(() => timerStore.isRunning, (storeRunning) => {
+  // Only start if store says running but local timer is not
+  if (storeRunning && !isRunning.value) {
+    // Ensure we're in focus mode
+    if (currentMode.value !== 'focus') {
+      currentMode.value = 'focus'
+      timeRemaining.value = timerDurations.value.focus
+    }
+    // Start the timer
+    isRunning.value = true
+    sessionStartTime.value = Date.now()
+  }
+})
+
 // Request notification permission on mount
 onMounted(() => {
   if ('Notification' in window && Notification.permission === 'default') {

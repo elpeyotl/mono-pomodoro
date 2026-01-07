@@ -59,7 +59,27 @@ async function signInWithGoogle() {
 }
 
 async function signOut() {
-  await supabase.auth.signOut()
-  navigateTo('/')
+  try {
+    // Try to sign out from Supabase
+    await supabase.auth.signOut({ scope: 'local' })
+  } catch (error: any) {
+    // Ignore session errors - the user is already logged out
+    console.warn('Logout error (ignored):', error.message)
+  }
+  
+  // Clear all Supabase-related items from localStorage
+  if (typeof window !== 'undefined') {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key))
+  }
+  
+  // Force reload to clear any cached state
+  window.location.href = '/'
 }
 </script>

@@ -38,6 +38,7 @@ export interface Task {
   pomodoro_count: number
   total_focus_time: number  // Gesamte Focus-Zeit in Sekunden
   is_active: boolean
+  sort_order: number   // Manuelle Sortierreihenfolge (0, 1, 2, ...)
   created_at: string
   updated_at: string
 }
