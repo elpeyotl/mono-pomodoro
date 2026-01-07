@@ -40,7 +40,13 @@ export default defineNuxtConfig({
       title: 'Mono - Pomodoro Focus App',
       meta: [
         { name: 'description', content: 'Minimalist Pomodoro & Task Focus App with beautiful wave animations' },
-        { name: 'theme-color', content: '#0f172a' }
+        { name: 'theme-color', content: '#0f172a' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
+        { name: 'apple-mobile-web-app-title', content: 'Mono' },
+        { property: 'og:title', content: 'Mono - Pomodoro Focus App' },
+        { property: 'og:description', content: 'Minimalist Pomodoro & Task Focus App with beautiful wave animations' },
+        { property: 'og:type', content: 'website' }
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
