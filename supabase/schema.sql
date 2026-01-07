@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     subtasks JSONB DEFAULT '[]'::jsonb,  -- Array von Subtasks als JSON
+    tags TEXT[] DEFAULT '{}'::text[],    -- Array von Tags (arbeit, privat, projekt, lernen, gesundheit)
     is_completed BOOLEAN DEFAULT FALSE,
     pomodoro_count INTEGER DEFAULT 0,
     total_focus_time INTEGER DEFAULT 0,  -- Gesamte Focus-Zeit in Sekunden
@@ -22,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Migration: Falls Tabelle bereits existiert, neue Spalten hinzufügen
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS subtasks JSONB DEFAULT '[]'::jsonb;
 -- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS total_focus_time INTEGER DEFAULT 0;
+-- ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'::text[];
 -- Falls notes-Spalte existiert und entfernt werden soll:
 -- ALTER TABLE tasks DROP COLUMN IF EXISTS notes;
 

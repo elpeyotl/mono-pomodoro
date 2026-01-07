@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { useStorage } from '@vueuse/core'
-import type { Task, LocalTask, Subtask } from '~/types'
+import type { Task, LocalTask, Subtask, TaskTag } from '~/types'
 
 export const useTaskStore = defineStore('tasks', () => {
   // Lokale Tasks werden in localStorage gespeichert (Guest Mode)
@@ -14,13 +14,36 @@ export const useTaskStore = defineStore('tasks', () => {
   const supabaseTasks = ref<Task[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  
+  // Tag-Filter (null = alle anzeigen)
+  const activeTagFilter = useStorage<TaskTag | null>('focus-app-tag-filter', null)
 
   // Computed: Aktive Datenquelle basierend auf Auth-Status
-  const tasks = computed(() => {
+  const rawTasks = computed(() => {
     if (user.value) {
       return supabaseTasks.value
     }
     return localTasks.value as Task[]
+  })
+
+  // Computed: Sortierte Tasks (aktiver Task oben, dann nach Erstellungsdatum)
+  const tasks = computed(() => {
+    const sorted = [...rawTasks.value].sort((a, b) => {
+      // Aktiver Task immer oben
+      if (a.is_active && !b.is_active) return -1
+      if (!a.is_active && b.is_active) return 1
+      // Dann nach Erstellungsdatum (neueste zuerst)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+    return sorted
+  })
+
+  // Computed: Gefilterte Tasks nach Tag
+  const filteredTasks = computed(() => {
+    if (!activeTagFilter.value) {
+      return tasks.value
+    }
+    return tasks.value.filter(task => task.tags?.includes(activeTagFilter.value!))
   })
 
   // Computed: Aktiver Task (für Timer-Verknüpfung)
@@ -28,15 +51,20 @@ export const useTaskStore = defineStore('tasks', () => {
     return tasks.value.find(task => task.is_active && !task.is_completed)
   })
 
-  // Computed: Unerledigte Tasks
+  // Computed: Unerledigte Tasks (gefiltert)
   const pendingTasks = computed(() => {
-    return tasks.value.filter(task => !task.is_completed)
+    return filteredTasks.value.filter(task => !task.is_completed)
   })
 
-  // Computed: Erledigte Tasks
+  // Computed: Erledigte Tasks (gefiltert)
   const completedTasks = computed(() => {
-    return tasks.value.filter(task => task.is_completed)
+    return filteredTasks.value.filter(task => task.is_completed)
   })
+
+  // Tag-Filter setzen
+  function setTagFilter(tag: TaskTag | null): void {
+    activeTagFilter.value = tag
+  }
 
   // Helper: UUID generieren
   function generateId(): string {
@@ -50,14 +78,15 @@ export const useTaskStore = defineStore('tasks', () => {
 
   // ==================== CRUD Operationen ====================
 
-  // Task erstellen
-  async function addTask(title: string): Promise<void> {
+  // Task erstellen (mit optionalen Tags)
+  async function addTask(title: string, tags: TaskTag[] = []): Promise<void> {
     if (!title.trim()) return
 
     const newTask: LocalTask = {
       id: generateId(),
       title: title.trim(),
       subtasks: [],
+      tags: tags,
       is_completed: false,
       pomodoro_count: 0,
       total_focus_time: 0,
@@ -337,15 +366,32 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }, { immediate: true })
 
+  // Tag zu einem Task hinzufügen/entfernen
+  async function toggleTag(taskId: string, tag: TaskTag): Promise<void> {
+    const task = tasks.value.find(t => t.id === taskId)
+    if (!task) return
+
+    const currentTags = task.tags || []
+    const hasTag = currentTags.includes(tag)
+    
+    const updatedTags = hasTag
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag]
+    
+    await updateTask(taskId, { tags: updatedTags })
+  }
+
   return {
     // State
     tasks,
+    filteredTasks,
     activeTask,
     pendingTasks,
     completedTasks,
     isLoading,
     error,
     hasLocalTasks,
+    activeTagFilter,
     
     // Task Actions
     addTask,
@@ -355,6 +401,10 @@ export const useTaskStore = defineStore('tasks', () => {
     setActiveTask,
     incrementPomodoro,
     addFocusTime,
+    
+    // Tag Actions
+    setTagFilter,
+    toggleTag,
     
     // Subtask Actions
     addSubtask,

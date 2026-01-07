@@ -9,14 +9,40 @@
     }"
   >
     <template #header>
-      <div class="flex items-center justify-between">
-        <h2 class="text-xl font-semibold">Tasks</h2>
-        <UButton
-          icon="i-heroicons-plus"
-          size="sm"
-          label="Add Task"
-          @click="openAddModal"
-        />
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Tasks</h2>
+          <UButton
+            icon="i-heroicons-plus"
+            size="sm"
+            label="Add Task"
+            @click="openAddModal"
+          />
+        </div>
+        
+        <!-- Tag Filter -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <UButton
+            size="xs"
+            :color="!taskStore.activeTagFilter ? 'primary' : 'gray'"
+            :variant="!taskStore.activeTagFilter ? 'solid' : 'ghost'"
+            label="All"
+            @click="taskStore.setTagFilter(null)"
+          />
+          <UButton
+            v-for="tag in AVAILABLE_TAGS"
+            :key="tag.value"
+            size="xs"
+            :color="taskStore.activeTagFilter === tag.value ? tag.color : 'gray'"
+            :variant="taskStore.activeTagFilter === tag.value ? 'solid' : 'ghost'"
+            @click="taskStore.setTagFilter(tag.value)"
+          >
+            <span class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full" :class="`bg-${tag.color}-500`"></span>
+              {{ tag.label }}
+            </span>
+          </UButton>
+        </div>
       </div>
     </template>
 
@@ -74,7 +100,17 @@
                       class="w-4 h-4 text-gray-400 flex-shrink-0"
                     />
                   </div>
-                  <div class="flex items-center gap-2 mt-1">
+                  <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <!-- Tags -->
+                    <UBadge
+                      v-for="tagValue in (task.tags || [])"
+                      :key="tagValue"
+                      :color="getTagColor(tagValue)"
+                      variant="subtle"
+                      size="xs"
+                    >
+                      {{ getTagLabel(tagValue) }}
+                    </UBadge>
                     <!-- Pomodoro Count -->
                     <span class="text-xs text-gray-500 flex items-center gap-1">
                       <UIcon name="i-heroicons-fire" class="w-3 h-3" />
@@ -277,7 +313,7 @@
           </h3>
         </template>
 
-        <form @submit.prevent="saveTask">
+        <form @submit.prevent="saveTask" class="space-y-4">
           <UFormGroup label="Task Title" required :ui="{ label: { base: 'text-gray-300' } }">
             <UInput
               v-model="taskTitle"
@@ -295,6 +331,28 @@
                 }
               }"
             />
+          </UFormGroup>
+          
+          <!-- Tag Selection -->
+          <UFormGroup label="Tags" :ui="{ label: { base: 'text-gray-300' } }">
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                v-for="tag in AVAILABLE_TAGS"
+                :key="tag.value"
+                size="xs"
+                :color="selectedTags.includes(tag.value) ? tag.color : 'gray'"
+                :variant="selectedTags.includes(tag.value) ? 'solid' : 'outline'"
+                @click="toggleTagSelection(tag.value)"
+              >
+                <span class="flex items-center gap-1">
+                  <UIcon
+                    :name="selectedTags.includes(tag.value) ? 'i-heroicons-check' : 'i-heroicons-plus'"
+                    class="w-3 h-3"
+                  />
+                  {{ tag.label }}
+                </span>
+              </UButton>
+            </div>
           </UFormGroup>
         </form>
 
@@ -358,7 +416,8 @@
 </template>
 
 <script setup lang="ts">
-import type { Task, LocalTask } from '~/types'
+import type { Task, LocalTask, TaskTag, TagColor } from '~/types'
+import { AVAILABLE_TAGS } from '~/types'
 
 const taskStore = useTaskStore()
 
@@ -366,6 +425,7 @@ const taskStore = useTaskStore()
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
 const taskTitle = ref('')
+const selectedTags = ref<TaskTag[]>([])
 const editingTask = ref<Task | LocalTask | null>(null)
 const taskToDelete = ref<Task | LocalTask | null>(null)
 
@@ -374,6 +434,28 @@ const expandedTaskId = ref<string | null>(null)
 
 // New Subtask Input
 const newSubtaskTitle = ref('')
+
+// Get tag color by value
+function getTagColor(tagValue: TaskTag): TagColor {
+  const tag = AVAILABLE_TAGS.find(t => t.value === tagValue)
+  return tag?.color || 'gray' as TagColor
+}
+
+// Get tag label by value
+function getTagLabel(tagValue: TaskTag): string {
+  const tag = AVAILABLE_TAGS.find(t => t.value === tagValue)
+  return tag?.label || tagValue
+}
+
+// Toggle tag selection
+function toggleTagSelection(tagValue: TaskTag) {
+  const index = selectedTags.value.indexOf(tagValue)
+  if (index === -1) {
+    selectedTags.value.push(tagValue)
+  } else {
+    selectedTags.value.splice(index, 1)
+  }
+}
 
 // Toggle Expand Subtasks
 function toggleExpand(taskId: string) {
@@ -417,6 +499,7 @@ async function addSubtaskToTask(taskId: string) {
 function openAddModal() {
   editingTask.value = null
   taskTitle.value = ''
+  selectedTags.value = []
   isModalOpen.value = true
 }
 
@@ -424,6 +507,7 @@ function openAddModal() {
 function openEditModal(task: Task | LocalTask) {
   editingTask.value = task
   taskTitle.value = task.title
+  selectedTags.value = [...(task.tags || [])]
   isModalOpen.value = true
 }
 
@@ -432,6 +516,7 @@ function closeModal() {
   isModalOpen.value = false
   editingTask.value = null
   taskTitle.value = ''
+  selectedTags.value = []
 }
 
 // Save Task (Add or Edit)
@@ -439,11 +524,12 @@ async function saveTask() {
   if (!taskTitle.value.trim()) return
 
   if (editingTask.value) {
-    await taskStore.updateTask(editingTask.value.id, { 
-      title: taskTitle.value.trim()
+    await taskStore.updateTask(editingTask.value.id, {
+      title: taskTitle.value.trim(),
+      tags: selectedTags.value
     })
   } else {
-    await taskStore.addTask(taskTitle.value.trim())
+    await taskStore.addTask(taskTitle.value.trim(), selectedTags.value)
   }
 
   closeModal()
