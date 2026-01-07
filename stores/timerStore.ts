@@ -76,14 +76,15 @@ export const useTimerStore = defineStore('timer', () => {
 
     isLoading.value = true
     try {
+      // Use maybeSingle() instead of single() to avoid PGRST116 error
+      // maybeSingle() returns null if no row found instead of throwing
       const { data, error } = await supabase
         .from('user_settings')
         .select('*')
         .eq('user_id', user.value.id)
-        .single()
+        .maybeSingle()
 
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 = no rows found (which is fine for new users)
+      if (error) {
         console.error('Error fetching settings:', error)
         return
       }
