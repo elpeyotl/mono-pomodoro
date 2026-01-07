@@ -17,8 +17,8 @@
             <UButton
               icon="i-heroicons-tag"
               size="sm"
-              color="gray"
-              variant="ghost"
+              color="primary"
+              variant="outline"
               label="Tags"
               @click="isTagManagerOpen = true"
             />
@@ -31,31 +31,32 @@
           </div>
         </div>
         
-        <!-- Tag Filter -->
+        <!-- Tag Filter - Minimalistisch: Punkt + heller Text -->
         <div v-if="taskStore.customTags.length > 0" class="flex items-center gap-2 flex-wrap">
-          <UButton
-            size="sm"
-            :color="!taskStore.activeTagFilter ? 'primary' : 'gray'"
-            :variant="!taskStore.activeTagFilter ? 'solid' : 'ghost'"
-            label="Alle"
+          <button
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+            :class="!taskStore.activeTagFilter
+              ? 'bg-primary-500/20 text-primary-400'
+              : 'text-gray-300 hover:text-white hover:bg-gray-700/50'"
             @click="taskStore.setTagFilter(null)"
-          />
-          <UButton
+          >
+            Alle
+          </button>
+          <button
             v-for="tag in taskStore.customTags"
             :key="tag.id"
-            size="sm"
-            :color="taskStore.activeTagFilter === tag.id ? tag.color : 'gray'"
-            :variant="taskStore.activeTagFilter === tag.id ? 'solid' : 'ghost'"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+            :class="taskStore.activeTagFilter === tag.id
+              ? 'bg-gray-700/50'
+              : 'hover:bg-gray-700/30'"
             @click="taskStore.setTagFilter(tag.id)"
           >
-            <span class="flex items-center gap-1.5">
-              <span 
-                class="w-2.5 h-2.5 rounded-full flex-shrink-0" 
-                :style="{ backgroundColor: getColorHex(tag.color) }"
-              ></span>
-              <span class="font-medium">{{ tag.name }}</span>
-            </span>
-          </UButton>
+            <span
+              class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              :style="{ backgroundColor: getColorHex(tag.color) }"
+            ></span>
+            <span class="text-gray-100">{{ tag.name }}</span>
+          </button>
         </div>
       </div>
     </template>
@@ -129,18 +130,18 @@
                       {{ getTagName(tagId) }}
                     </span>
                     <!-- Pomodoro Count -->
-                    <span class="text-xs text-gray-500 flex items-center gap-1">
-                      <UIcon name="i-heroicons-fire" class="w-3 h-3" />
+                    <span class="text-xs text-gray-300 flex items-center gap-1">
+                      <UIcon name="i-heroicons-fire" class="w-3 h-3 text-orange-400" />
                       {{ task.pomodoro_count }} pomodoros
                     </span>
                     <!-- Total Focus Time -->
-                    <span v-if="task.total_focus_time > 0" class="text-xs text-gray-500 flex items-center gap-1">
-                      <UIcon name="i-heroicons-clock" class="w-3 h-3" />
+                    <span v-if="task.total_focus_time > 0" class="text-xs text-gray-300 flex items-center gap-1">
+                      <UIcon name="i-heroicons-clock" class="w-3 h-3 text-blue-400" />
                       {{ formatFocusTime(task.total_focus_time) }}
                     </span>
                     <!-- Subtask Progress -->
-                    <span v-if="task.subtasks.length > 0" class="text-xs text-gray-500 flex items-center gap-1">
-                      <UIcon name="i-heroicons-check-circle" class="w-3 h-3" />
+                    <span v-if="task.subtasks.length > 0" class="text-xs text-gray-300 flex items-center gap-1">
+                      <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
                       {{ getCompletedSubtasks(task) }}/{{ task.subtasks.length }}
                     </span>
                     <!-- Active Badge -->
@@ -613,6 +614,22 @@ function getTagButtonStyle(tag: CustomTag, isSelected: boolean): Record<string, 
   }
   return {
     backgroundColor: hex + '20',
+    color: hex
+  }
+}
+
+// Get filter button style
+function getFilterButtonStyle(tag: CustomTag, isSelected: boolean): Record<string, string> {
+  const hex = getColorHex(tag.color)
+  if (isSelected) {
+    return {
+      backgroundColor: hex,
+      color: '#ffffff',
+      ringColor: hex
+    }
+  }
+  return {
+    backgroundColor: hex + '25',
     color: hex
   }
 }
