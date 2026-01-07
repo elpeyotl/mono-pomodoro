@@ -31,7 +31,7 @@
           </div>
         </div>
         
-        <!-- Tag Filter - Minimalistisch: Punkt + heller Text -->
+        <!-- Tag Filter - Minimalistisch: Punkt + heller Text + Count Badge -->
         <div v-if="taskStore.customTags.length > 0" class="flex items-center gap-2 flex-wrap">
           <button
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
@@ -41,6 +41,15 @@
             @click="taskStore.setTagFilter(null)"
           >
             Alle
+            <span
+              v-if="getAllPendingTasksCount() > 0"
+              class="ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-xs font-bold"
+              :class="!taskStore.activeTagFilter
+                ? 'bg-primary-500/30 text-primary-300'
+                : 'bg-gray-600 text-gray-300'"
+            >
+              {{ getAllPendingTasksCount() }}
+            </span>
           </button>
           <button
             v-for="tag in taskStore.customTags"
@@ -56,6 +65,16 @@
               :style="{ backgroundColor: getColorHex(tag.color) }"
             ></span>
             <span class="text-gray-100">{{ tag.name }}</span>
+            <span
+              v-if="getTaskCountForTag(tag.id) > 0"
+              class="ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-xs font-bold"
+              :style="{
+                backgroundColor: getColorHex(tag.color) + '40',
+                color: getColorHex(tag.color)
+              }"
+            >
+              {{ getTaskCountForTag(tag.id) }}
+            </span>
           </button>
         </div>
       </div>
@@ -605,6 +624,19 @@ async function onDragEnd() {
 function getColorHex(color: TagColor): string {
   const colorDef = TAG_COLORS.find(c => c.value === color)
   return colorDef?.hex || '#6b7280'
+}
+
+// Get all pending tasks count (unfiltered)
+function getAllPendingTasksCount(): number {
+  return taskStore.tasks.filter(task => !task.is_completed).length
+}
+
+// Get task count for a specific tag (all pending tasks, unfiltered)
+function getTaskCountForTag(tagId: string): number {
+  // Use tasks directly (not filtered) to always show correct count
+  return taskStore.tasks.filter(task =>
+    !task.is_completed && task.tags?.includes(tagId)
+  ).length
 }
 
 // Get tag name by ID

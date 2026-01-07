@@ -305,37 +305,18 @@
 </template>
 
 <script setup lang="ts">
-import { useStorage, onKeyStroke } from '@vueuse/core'
-import { useTimerStore, type TimerMode } from '~/stores/timerStore'
+import { onKeyStroke } from '@vueuse/core'
+import { useTimerStore, type TimerMode, type TimerSettings, DEFAULT_SETTINGS } from '~/stores/timerStore'
 
-// Timer Store for background synchronization
+// Timer Store for background synchronization and settings
 const timerStore = useTimerStore()
-
-interface TimerSettings {
-  focus: number           // in minutes
-  shortBreak: number      // in minutes
-  longBreak: number       // in minutes
-  longBreakInterval: number // number of focus sessions before long break
-  autoStart: boolean      // auto-start next timer
-  soundEnabled: boolean   // play sound on completion
-}
-
-// Default settings
-const DEFAULT_SETTINGS: TimerSettings = {
-  focus: 4,           // 4 minutes for testing/quick sessions
-  shortBreak: 5,
-  longBreak: 15,
-  longBreakInterval: 4,
-  autoStart: true,    // Auto-start next timer by default
-  soundEnabled: true  // Play sound on completion by default
-}
 
 // Task Store für aktiven Task
 const taskStore = useTaskStore()
 const activeTask = computed(() => taskStore.activeTask)
 
-// Persisted settings in localStorage
-const savedSettings = useStorage<TimerSettings>('focus-app-timer-settings', { ...DEFAULT_SETTINGS })
+// Settings from timerStore (synced with Supabase for logged-in users)
+const savedSettings = computed(() => timerStore.settings)
 
 // Pomodoro count (completed focus sessions in current cycle)
 const pomodoroCount = ref(0)
@@ -543,21 +524,17 @@ function openSettings() {
   isSettingsOpen.value = true
 }
 
-function saveSettings() {
-  // Validate values
-  settingsForm.value.focus = Math.max(1, Math.min(120, settingsForm.value.focus || 25))
-  settingsForm.value.shortBreak = Math.max(1, Math.min(30, settingsForm.value.shortBreak || 5))
-  settingsForm.value.longBreak = Math.max(1, Math.min(60, settingsForm.value.longBreak || 15))
-  settingsForm.value.longBreakInterval = Math.max(2, Math.min(10, settingsForm.value.longBreakInterval || 4))
+async function saveSettings() {
+  // Save via timerStore (handles validation and Supabase sync)
+  const success = await timerStore.saveSettings(settingsForm.value)
   
-  // Save to localStorage
-  savedSettings.value = { ...settingsForm.value }
-  
-  // Reset current timer with new duration
-  timeRemaining.value = timerDurations.value[currentMode.value]
-  isRunning.value = false
-  
-  isSettingsOpen.value = false
+  if (success) {
+    // Reset current timer with new duration
+    timeRemaining.value = timerDurations.value[currentMode.value]
+    isRunning.value = false
+    
+    isSettingsOpen.value = false
+  }
 }
 
 function cancelSettings() {
@@ -565,7 +542,7 @@ function cancelSettings() {
   isSettingsOpen.value = false
 }
 
-function resetToDefaults() {
+async function resetToDefaults() {
   settingsForm.value = { ...DEFAULT_SETTINGS }
 }
 

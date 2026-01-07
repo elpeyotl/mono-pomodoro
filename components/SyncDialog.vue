@@ -16,7 +16,11 @@
           </div>
           <div>
             <h3 class="text-lg font-semibold text-gray-100">Lokale Daten gefunden</h3>
-            <p class="text-sm text-gray-400">Du hast {{ localTaskCount }} Tasks und {{ localTagCount }} Tags im Guest-Modus erstellt</p>
+            <p class="text-sm text-gray-400">
+              Du hast {{ localTaskCount }} Tasks, {{ localTagCount }} Tags
+              <span v-if="timerStore.hasLocalSettings"> und Timer-Einstellungen</span>
+              im Guest-Modus erstellt
+            </p>
           </div>
         </div>
       </template>
@@ -24,7 +28,7 @@
       <div class="space-y-4">
         <p class="text-gray-300">
           Möchtest du deine lokalen Daten mit deinem Account synchronisieren?
-          Nach der Synchronisation werden alle Tasks und Tags in der Cloud gespeichert und sind auf allen Geräten verfügbar.
+          Nach der Synchronisation werden alle Tasks, Tags und Timer-Einstellungen in der Cloud gespeichert und sind auf allen Geräten verfügbar.
         </p>
         
         <!-- Preview of local tasks -->
@@ -92,8 +96,10 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import type { LocalTask } from '~/types'
+import { useTimerStore } from '~/stores/timerStore'
 
 const taskStore = useTaskStore()
+const timerStore = useTimerStore()
 const user = useSupabaseUser()
 
 // Local storage for tracking if sync was offered
@@ -140,9 +146,9 @@ const syncResultMessage = computed(() => {
   }
 })
 
-// Watch for user login with local tasks or tags
-watch([user, () => taskStore.hasLocalTasks, () => taskStore.hasLocalTags], ([newUser, hasLocalTasks, hasLocalTags]) => {
-  if (newUser && (hasLocalTasks || hasLocalTags) && !syncOffered.value) {
+// Watch for user login with local tasks, tags, or settings
+watch([user, () => taskStore.hasLocalTasks, () => taskStore.hasLocalTags, () => timerStore.hasLocalSettings], ([newUser, hasLocalTasks, hasLocalTags, hasLocalSettings]) => {
+  if (newUser && (hasLocalTasks || hasLocalTags || hasLocalSettings) && !syncOffered.value) {
     // User just logged in and has local data
     isOpen.value = true
   }
@@ -153,7 +159,15 @@ async function performSync() {
   syncResult.value = null
   
   try {
+    // Sync tasks and tags
     const result = await taskStore.syncLocalToSupabase()
+    
+    // Sync timer settings
+    const settingsSynced = await timerStore.syncLocalSettingsToSupabase()
+    if (settingsSynced) {
+      result.synced++
+    }
+    
     syncStats.value = result
     
     if (result.errors === 0 && result.synced > 0) {
@@ -190,7 +204,7 @@ function deleteLocalTasks() {
 
 // Expose method to manually trigger sync dialog
 function openSyncDialog() {
-  if (user.value && (localTaskCount.value > 0 || localTagCount.value > 0)) {
+  if (user.value && (localTaskCount.value > 0 || localTagCount.value > 0 || timerStore.hasLocalSettings)) {
     syncOffered.value = false
     isOpen.value = true
   }
