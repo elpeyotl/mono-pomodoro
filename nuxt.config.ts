@@ -49,21 +49,21 @@ export default defineNuxtConfig({
       start_url: '/',
       icons: [
         {
-          src: '/pwa-192x192.svg',
+          src: '/pwa-192x192.png',
           sizes: '192x192',
-          type: 'image/svg+xml',
+          type: 'image/png',
           purpose: 'any'
         },
         {
-          src: '/pwa-512x512.svg',
+          src: '/pwa-512x512.png',
           sizes: '512x512',
-          type: 'image/svg+xml',
+          type: 'image/png',
           purpose: 'any'
         },
         {
-          src: '/pwa-512x512.svg',
+          src: '/pwa-512x512.png',
           sizes: '512x512',
-          type: 'image/svg+xml',
+          type: 'image/png',
           purpose: 'maskable'
         }
       ]
@@ -116,7 +116,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
         { rel: 'shortcut icon', href: '/favicon.svg' },
-        { rel: 'apple-touch-icon', href: '/pwa-192x192.svg' }
+        { rel: 'apple-touch-icon', href: '/pwa-192x192.png' }
       ]
     }
   },
