@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4 lg:space-y-8">
+  <div class="h-full lg:h-auto flex flex-col lg:block space-y-4 lg:space-y-8">
     <!-- Welcome Message - Hidden on mobile to maximize timer space -->
     <div class="hidden lg:block text-center">
       <h1 class="text-3xl font-bold mb-2">
@@ -24,9 +24,9 @@
     </div>
 
     <!-- Mobile/Tablet Layout: Swipeable Tabs (< 1024px) -->
-    <div class="lg:hidden">
+    <div class="lg:hidden flex-1 flex flex-col overflow-hidden">
       <!-- Tab Indicator Dots (above content) -->
-      <div class="flex justify-center gap-2 mb-4">
+      <div class="flex justify-center gap-2 py-2 flex-shrink-0">
         <button
           v-for="(tab, index) in tabs"
           :key="tab.id"
@@ -36,19 +36,18 @@
         />
       </div>
 
-      <!-- Swipeable Container -->
+      <!-- Swipeable Container - takes remaining space minus bottom bar -->
       <div
         ref="swipeContainer"
-        class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4"
-        :style="{ scrollBehavior: 'smooth', height: containerHeight }"
+        class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-16"
+        style="scroll-behavior: smooth;"
         @scroll="onScroll"
       >
-        <!-- Timer Card - scrollable with centered content -->
+        <!-- Timer Card - scrollable, starts at top like tasks -->
         <div
-          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
-          :style="{ height: containerHeight }"
+          class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="min-h-full flex items-center justify-center py-4">
+          <div class="py-2 flex justify-center">
             <div class="w-full max-w-md">
               <PomodoroTimer />
             </div>
@@ -57,10 +56,9 @@
 
         <!-- Tasks Card - scrollable content with padding -->
         <div
-          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
-          :style="{ height: containerHeight }"
+          class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="py-4">
+          <div class="py-2">
             <TaskList />
           </div>
         </div>
@@ -72,7 +70,7 @@
           <button
             v-for="(tab, index) in tabs"
             :key="tab.id"
-            class="flex-1 flex flex-col items-center gap-1 py-3 px-4 transition-colors"
+            class="flex-1 flex flex-col items-center gap-1 py-3 px-4 transition-colors relative"
             :class="activeTab === index ? 'text-primary-400' : 'text-gray-500'"
             @click="scrollToTab(index)"
           >
@@ -96,31 +94,14 @@
           </button>
         </div>
       </div>
-
-      <!-- Spacer for bottom tab bar -->
-      <div class="h-20"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useWindowSize } from '@vueuse/core'
-
 const user = useSupabaseUser()
 const timerStore = useTimerStore()
 const taskStore = useTaskStore()
-
-// Window size for dynamic container height
-const { height: windowHeight } = useWindowSize()
-
-// Calculate container height for mobile: viewport - navbar (64px) - tab dots (32px) - bottom bar (80px) - padding (24px)
-// Welcome message is hidden on mobile, so we have more space
-const containerHeight = computed(() => {
-  const offset = 200 // Total offset for fixed elements (no welcome message on mobile)
-  const minHeight = 400 // Minimum height
-  const calculatedHeight = windowHeight.value - offset
-  return `${Math.max(calculatedHeight, minHeight)}px`
-})
 
 // Tabs configuration
 const tabs = [
