@@ -191,34 +191,89 @@ function scrollToTaskList() {
 function performScrollToTask(taskId: string) {
   // On mobile, switch to Tasks tab first, then scroll to task
   if (isMobileView() && swipeContainer.value) {
+    // Get the filtered tasks to find the index
+    const filteredTasks = taskStore.filteredTasks
+    const taskIndex = filteredTasks.findIndex(t => t.id === taskId)
+    
+    if (taskIndex === -1) return
+    
+    // Find the first visible task element to get its height
+    // We look for any task element that has a height (works even when target is not visible)
+    const allTaskElements = document.querySelectorAll('[id^="task-"]')
+    let taskHeight = 0
+    
+    for (const el of allTaskElements) {
+      const height = (el as HTMLElement).offsetHeight
+      if (height > 0) {
+        taskHeight = height
+        break
+      }
+    }
+    
+    // If no task has height, use fallback
+    if (taskHeight === 0) {
+      taskHeight = 60 // Approximate height of a task item
+    }
+    
+    // Calculate scroll position (with some padding for header)
+    const headerOffset = 100 // Account for header and padding
+    const scrollTarget = (taskIndex * taskHeight) + headerOffset
+    
+    // First, scroll horizontally to the Tasks tab
     scrollToTab(1)
     
-    // Wait for horizontal scroll to complete
+    // After horizontal scroll completes, scroll vertically
     setTimeout(() => {
-      scrollToActiveTask(taskId, true)
+      window.scrollTo({
+        top: scrollTarget,
+        behavior: 'smooth'
+      })
+      
+      // Add highlight animation after scroll completes
+      setTimeout(() => {
+        const taskElement = document.getElementById(`task-${taskId}`)
+        if (taskElement) {
+          taskElement.classList.add('highlight-pulse')
+          setTimeout(() => {
+            taskElement.classList.remove('highlight-pulse')
+          }, 1500)
+        }
+      }, 400)
     }, 500)
     return
   }
   
   // On desktop, scroll to the active task directly
-  scrollToActiveTask(taskId, false)
+  scrollToActiveTask(taskId)
 }
 
-// Scroll to a specific task and highlight it
-function scrollToActiveTask(taskId: string, _isMobile: boolean) {
+// Scroll to a specific task and highlight it (desktop version)
+function scrollToActiveTask(taskId: string) {
   const taskElement = document.getElementById(`task-${taskId}`)
   if (!taskElement) return
   
-  // Use scrollIntoView for both mobile and desktop (works with body scroll)
-  taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // Get the task's position
+  const rect = taskElement.getBoundingClientRect()
+  const absoluteTop = rect.top + window.scrollY
+  const viewportHeight = window.innerHeight
+  const taskHeight = taskElement.offsetHeight
   
-  // Add highlight animation after a short delay to ensure scroll is complete
+  // Calculate scroll position to center the task in the viewport
+  const scrollTarget = absoluteTop - (viewportHeight / 2) + (taskHeight / 2)
+  
+  // Use window.scrollTo for body scroll
+  window.scrollTo({
+    top: Math.max(0, scrollTarget),
+    behavior: 'smooth'
+  })
+  
+  // Add highlight animation after scroll completes
   setTimeout(() => {
     taskElement.classList.add('highlight-pulse')
     setTimeout(() => {
       taskElement.classList.remove('highlight-pulse')
     }, 1500)
-  }, 300)
+  }, 400)
 }
 
 // Handle scroll to update active tab
