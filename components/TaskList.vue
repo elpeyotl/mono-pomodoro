@@ -111,9 +111,9 @@
           @end="onDragEnd"
         >
           <template #item="{ element: task }">
-            <div class="group mb-2">
+            <div :id="`task-${task.id}`" class="group mb-2">
               <div
-                class="rounded-lg transition-colors"
+                class="rounded-lg transition-colors task-item"
                 :class="[
                   task.is_active
                     ? 'bg-primary-500/20 ring-1 ring-primary-500/50'

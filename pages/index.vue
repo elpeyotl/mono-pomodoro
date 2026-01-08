@@ -14,7 +14,7 @@
     <div class="hidden lg:grid lg:grid-cols-2 gap-8 items-start">
       <!-- Timer - Left Side -->
       <div class="lg:sticky lg:top-8">
-        <PomodoroTimer />
+        <PomodoroTimer @navigate-to-task="scrollToTaskList" />
       </div>
 
       <!-- Task List - Right Side -->
@@ -49,13 +49,14 @@
         >
           <div class="py-2 flex justify-center">
             <div class="w-full max-w-md">
-              <PomodoroTimer />
+              <PomodoroTimer @navigate-to-task="scrollToTaskList" />
             </div>
           </div>
         </div>
 
         <!-- Tasks Card - scrollable content with padding for bottom bar -->
         <div
+          ref="tasksContainer"
           class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
           <div class="pt-2 pb-20">
@@ -112,6 +113,7 @@ const tabs = [
 // Active tab state
 const activeTab = ref(0)
 const swipeContainer = ref<HTMLElement | null>(null)
+const tasksContainer = ref<HTMLElement | null>(null)
 
 // Pending task count for badge
 const pendingTaskCount = computed(() => taskStore.pendingTasks.length)
@@ -142,6 +144,93 @@ function scrollToTab(index: number) {
     left: index * containerWidth,
     behavior: 'smooth'
   })
+}
+
+// Check if we're on mobile (< 1024px)
+function isMobileView(): boolean {
+  return window.innerWidth < 1024
+}
+
+// Navigate to task list (from timer "Working on" click)
+function scrollToTaskList() {
+  const activeTask = taskStore.activeTask
+  if (!activeTask) return
+  
+  // On mobile, switch to Tasks tab first, then scroll to task
+  if (isMobileView() && swipeContainer.value) {
+    scrollToTab(1)
+    
+    // Wait for horizontal scroll to complete
+    setTimeout(() => {
+      scrollToActiveTask(activeTask.id, true)
+    }, 500)
+    return
+  }
+  
+  // On desktop, scroll to the active task directly
+  scrollToActiveTask(activeTask.id, false)
+}
+
+// Scroll to a specific task and highlight it
+function scrollToActiveTask(taskId: string, isMobile: boolean) {
+  const taskElement = document.getElementById(`task-${taskId}`)
+  if (!taskElement) return
+  
+  // For mobile, we need to find the scrollable container and scroll within it
+  if (isMobile && tasksContainer.value) {
+    // Find the task's index in the pending tasks list
+    const taskIndex = taskStore.pendingTasks.findIndex(t => t.id === taskId)
+    
+    if (taskIndex >= 0) {
+      // Measure actual task heights by looking at all task elements
+      const allTaskElements = tasksContainer.value.querySelectorAll('[id^="task-"]')
+      
+      // Calculate the offset by summing up heights of all tasks before this one
+      let taskTop = 0
+      
+      // First, find the header height (everything before the first task)
+      if (allTaskElements.length > 0) {
+        const firstTask = allTaskElements[0] as HTMLElement
+        const firstTaskRect = firstTask.getBoundingClientRect()
+        const containerRect = tasksContainer.value.getBoundingClientRect()
+        // Header height = first task's top relative to container + current scroll
+        const headerHeight = (firstTaskRect.top - containerRect.top) + tasksContainer.value.scrollTop
+        taskTop = headerHeight
+      }
+      
+      // Sum up heights of tasks before the target
+      for (let i = 0; i < taskIndex && i < allTaskElements.length; i++) {
+        const el = allTaskElements[i] as HTMLElement
+        taskTop += el.offsetHeight + 8 // 8px for margin-bottom (mb-2)
+      }
+      
+      // Get the target task's height
+      const targetTaskHeight = taskIndex < allTaskElements.length
+        ? (allTaskElements[taskIndex] as HTMLElement).offsetHeight
+        : 100
+      
+      const containerHeight = tasksContainer.value.clientHeight
+      
+      // Calculate scroll position to center the task
+      const scrollTop = taskTop - (containerHeight / 2) + (targetTaskHeight / 2)
+      
+      tasksContainer.value.scrollTo({
+        top: Math.max(0, scrollTop),
+        behavior: 'smooth'
+      })
+    }
+  } else {
+    // On desktop, use scrollIntoView
+    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  
+  // Add highlight animation after a short delay to ensure scroll is complete
+  setTimeout(() => {
+    taskElement.classList.add('highlight-pulse')
+    setTimeout(() => {
+      taskElement.classList.remove('highlight-pulse')
+    }, 1500)
+  }, 300)
 }
 
 // Handle scroll to update active tab

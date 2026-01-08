@@ -26,12 +26,17 @@
           </span>
         </div>
         
-        <!-- Active Task Display -->
-        <div v-if="activeTask" class="mt-2">
+        <!-- Active Task Display - Clickable to navigate to task -->
+        <div
+          v-if="activeTask"
+          class="mt-2 cursor-pointer hover:bg-gray-700/30 rounded-lg py-1 px-2 -mx-2 transition-colors"
+          @click="navigateToTask"
+        >
           <div class="flex items-center justify-center gap-2 text-sm">
             <UIcon name="i-heroicons-bolt" class="w-4 h-4 text-primary-400" />
             <span class="text-gray-300">Working on:</span>
             <span class="text-primary-400 font-medium truncate max-w-[200px]">{{ activeTask.title }}</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3 h-3 text-gray-500" />
           </div>
           <div class="flex items-center justify-center gap-1 mt-1 text-xs text-gray-500">
             <UIcon name="i-heroicons-clock" class="w-3 h-3" />
@@ -307,6 +312,11 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
 import { useTimerStore, type TimerMode, type TimerSettings, DEFAULT_SETTINGS } from '~/stores/timerStore'
+
+// Emit for navigation to task
+const emit = defineEmits<{
+  (e: 'navigate-to-task'): void
+}>()
 
 // Timer Store for background synchronization and settings
 const timerStore = useTimerStore()
@@ -695,4 +705,9 @@ onKeyStroke('3', (e) => {
   if (isTyping(e)) return
   setMode('longBreak')
 })
+
+// Navigate to active task (emits event for parent to handle)
+function navigateToTask() {
+  emit('navigate-to-task')
+}
 </script>
