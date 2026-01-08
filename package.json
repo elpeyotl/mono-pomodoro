@@ -15,6 +15,7 @@
     "@nuxtjs/supabase": "^1.4.6",
     "@pinia/nuxt": "^0.5.5",
     "@types/three": "^0.182.0",
+    "@vercel/analytics": "^1.6.1",
     "@vueuse/core": "^11.3.0",
     "@vueuse/nuxt": "^11.3.0",
     "nuxt": "^3.14.0",
