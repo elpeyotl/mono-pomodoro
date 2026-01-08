@@ -43,20 +43,24 @@
         :style="{ scrollBehavior: 'smooth', height: containerHeight }"
         @scroll="onScroll"
       >
-        <!-- Timer Card - centered content -->
+        <!-- Timer Card - centered content with padding -->
         <div
-          class="flex-shrink-0 w-full snap-center px-1 flex items-center justify-center"
+          class="flex-shrink-0 w-full snap-center px-2 flex items-center justify-center"
           :style="{ height: containerHeight }"
         >
-          <PomodoroTimer />
+          <div class="w-full max-w-md">
+            <PomodoroTimer />
+          </div>
         </div>
 
-        <!-- Tasks Card - scrollable content -->
+        <!-- Tasks Card - scrollable content with padding -->
         <div
-          class="flex-shrink-0 w-full snap-center px-1 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
           :style="{ height: containerHeight }"
         >
-          <TaskList />
+          <div class="pb-4">
+            <TaskList />
+          </div>
         </div>
       </div>
 
