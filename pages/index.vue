@@ -54,11 +54,11 @@
           </div>
         </div>
 
-        <!-- Tasks Card - scrollable content with padding -->
+        <!-- Tasks Card - scrollable content with padding for bottom bar -->
         <div
           class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="py-2">
+          <div class="pt-2 pb-20">
             <TaskList />
           </div>
         </div>
