@@ -27,7 +27,7 @@
     </div>
 
     <!-- Mobile/Tablet Layout: Swipeable Tabs (< 1024px) -->
-    <div class="lg:hidden flex-1 flex flex-col overflow-hidden">
+    <div class="lg:hidden flex-1 flex flex-col min-h-0">
       <!-- Tab Indicator Dots (above content) -->
       <div class="flex justify-center gap-2 py-2 flex-shrink-0">
         <button
@@ -39,16 +39,16 @@
         />
       </div>
 
-      <!-- Swipeable Container - takes remaining space minus bottom bar -->
+      <!-- Swipeable Container -->
       <div
         ref="swipeContainer"
         class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-16"
         style="scroll-behavior: smooth;"
         @scroll="onScroll"
       >
-        <!-- Timer Card - scrollable, starts at top like tasks -->
+        <!-- Timer Card -->
         <div
-          class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
           <div class="py-2 flex justify-center">
             <div class="w-full max-w-md">
@@ -57,10 +57,10 @@
           </div>
         </div>
 
-        <!-- Tasks Card - scrollable content with padding for bottom bar -->
+        <!-- Tasks Card -->
         <div
           ref="tasksContainer"
-          class="flex-shrink-0 w-full h-full snap-center px-2 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
           <div class="pt-2 pb-20">
             <TaskList />
