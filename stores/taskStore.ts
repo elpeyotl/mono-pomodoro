@@ -293,21 +293,20 @@ export const useTaskStore = defineStore('tasks', () => {
 
     if (user.value) {
       // Supabase: Task mit user_id erstellen
+      // NICHT lokal hinzufügen - Realtime-Event wird den Task hinzufügen
       isLoading.value = true
       error.value = null
       
       try {
-        const { data, error: supabaseError } = await supabase
+        const { error: supabaseError } = await supabase
           .from('tasks')
           .insert({
             ...newTask,
             user_id: user.value.id
           })
-          .select()
-          .single()
 
         if (supabaseError) throw supabaseError
-        if (data) supabaseTasks.value.push(data as Task)
+        // Task wird über Realtime-INSERT-Event hinzugefügt
       } catch (e: any) {
         error.value = e.message
         console.error('Error adding task:', e)
@@ -382,6 +381,45 @@ export const useTaskStore = defineStore('tasks', () => {
     } else {
       localTasks.value = localTasks.value.filter(t => t.id !== id)
     }
+  }
+
+  // Mehrere Tasks löschen (Batch Delete)
+  async function deleteTasks(ids: string[]): Promise<{ deleted: number; errors: number }> {
+    if (ids.length === 0) return { deleted: 0, errors: 0 }
+
+    let deleted = 0
+    let errors = 0
+
+    if (user.value) {
+      isLoading.value = true
+      error.value = null
+      
+      try {
+        // Supabase: Batch delete mit .in()
+        const { error: supabaseError } = await supabase
+          .from('tasks')
+          .delete()
+          .in('id', ids)
+
+        if (supabaseError) throw supabaseError
+        
+        // Lokalen State aktualisieren
+        supabaseTasks.value = supabaseTasks.value.filter(t => !ids.includes(t.id))
+        deleted = ids.length
+      } catch (e: any) {
+        error.value = e.message
+        console.error('Error deleting tasks:', e)
+        errors = ids.length
+      } finally {
+        isLoading.value = false
+      }
+    } else {
+      // localStorage: Direkt filtern
+      localTasks.value = localTasks.value.filter(t => !ids.includes(t.id))
+      deleted = ids.length
+    }
+
+    return { deleted, errors }
   }
 
   // Task als erledigt markieren
@@ -774,6 +812,7 @@ export const useTaskStore = defineStore('tasks', () => {
     addTask,
     updateTask,
     deleteTask,
+    deleteTasks,
     toggleComplete,
     setActiveTask,
     incrementPomodoro,

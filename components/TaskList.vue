@@ -296,18 +296,85 @@
 
       <!-- Completed Tasks -->
       <div v-if="taskStore.completedTasks.length > 0" class="py-2">
-        <h3 class="text-sm font-medium text-gray-400 mb-2 px-1">
-          Completed ({{ taskStore.completedTasks.length }})
-        </h3>
+        <div class="flex items-center justify-between mb-2 px-1">
+          <h3 class="text-sm font-medium text-gray-400">
+            Completed ({{ taskStore.completedTasks.length }})
+          </h3>
+          
+          <!-- Multiselect Controls -->
+          <div class="flex items-center gap-2">
+            <template v-if="isMultiselectMode">
+              <!-- Select All / Deselect All -->
+              <UButton
+                :icon="selectedCompletedTasks.length === taskStore.completedTasks.length ? 'i-heroicons-x-mark' : 'i-heroicons-check'"
+                size="xs"
+                color="primary"
+                variant="soft"
+                :label="selectedCompletedTasks.length === taskStore.completedTasks.length ? 'Deselect' : 'All'"
+                @click="toggleSelectAll"
+              />
+              
+              <!-- Delete Selected -->
+              <UButton
+                icon="i-heroicons-trash"
+                size="xs"
+                color="red"
+                variant="soft"
+                :label="`Delete (${selectedCompletedTasks.length})`"
+                :disabled="selectedCompletedTasks.length === 0"
+                @click="confirmDeleteSelected"
+              />
+              
+              <!-- Cancel -->
+              <UButton
+                icon="i-heroicons-x-mark"
+                size="xs"
+                color="white"
+                variant="outline"
+                @click="exitMultiselectMode"
+              />
+            </template>
+            <template v-else>
+              <!-- Enter Multiselect Mode -->
+              <UButton
+                icon="i-heroicons-trash"
+                size="xs"
+                color="gray"
+                variant="ghost"
+                label="Clean up"
+                @click="enterMultiselectMode"
+              />
+            </template>
+          </div>
+        </div>
+        
         <ul class="space-y-2">
-          <li 
-            v-for="task in taskStore.completedTasks" 
+          <li
+            v-for="task in taskStore.completedTasks"
             :key="task.id"
             class="group"
           >
-            <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-              <!-- Checkbox -->
-              <UCheckbox 
+            <div
+              class="flex items-center gap-3 p-3 rounded-lg transition-colors cursor-pointer"
+              :class="[
+                isMultiselectMode && selectedCompletedTasks.includes(task.id)
+                  ? 'bg-red-500/20 ring-1 ring-red-500/50'
+                  : 'bg-gray-700/30 hover:bg-gray-700/50'
+              ]"
+              @click="isMultiselectMode ? toggleTaskSelection(task.id) : null"
+            >
+              <!-- Selection Checkbox (Multiselect Mode) -->
+              <UCheckbox
+                v-if="isMultiselectMode"
+                :model-value="selectedCompletedTasks.includes(task.id)"
+                @update:model-value="toggleTaskSelection(task.id)"
+                color="red"
+                @click.stop
+              />
+              
+              <!-- Restore Checkbox (Normal Mode) -->
+              <UCheckbox
+                v-else
                 :model-value="task.is_completed"
                 @update:model-value="taskStore.toggleComplete(task.id)"
                 color="primary"
@@ -328,15 +395,16 @@
                 </div>
               </div>
 
-              <!-- Delete Button - Always visible on mobile -->
+              <!-- Delete Button - Only in normal mode -->
               <UButton
+                v-if="!isMultiselectMode"
                 icon="i-heroicons-trash"
                 size="xs"
                 color="red"
                 variant="outline"
                 class="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                 aria-label="Delete"
-                @click="confirmDelete(task)"
+                @click.stop="confirmDelete(task)"
               />
             </div>
           </li>
@@ -574,6 +642,44 @@
         </template>
       </UCard>
     </UModal>
+
+    <!-- Delete Multiple Confirmation Modal -->
+    <UModal v-model="isDeleteMultipleModalOpen">
+      <UCard
+        :ui="{
+          background: 'bg-gray-900',
+          ring: 'ring-1 ring-gray-800',
+          header: { background: 'bg-gray-900' },
+          body: { background: 'bg-gray-900' },
+          footer: { background: 'bg-gray-900' }
+        }"
+      >
+        <template #header>
+          <h3 class="text-lg font-semibold text-red-400">Delete {{ selectedCompletedTasks.length }} Tasks</h3>
+        </template>
+
+        <p class="text-gray-300">
+          Are you sure you want to delete <strong class="text-gray-100">{{ selectedCompletedTasks.length }} completed tasks</strong>?
+        </p>
+        <p class="text-sm text-gray-500 mt-2">This action cannot be undone.</p>
+
+        <template #footer>
+          <div class="flex justify-end gap-3">
+            <UButton
+              color="gray"
+              variant="ghost"
+              label="Cancel"
+              @click="isDeleteMultipleModalOpen = false"
+            />
+            <UButton
+              color="red"
+              :label="`Delete ${selectedCompletedTasks.length} Tasks`"
+              @click="deleteSelectedTasks"
+            />
+          </div>
+        </template>
+      </UCard>
+    </UModal>
   </UCard>
 </template>
 
@@ -588,11 +694,16 @@ const timerStore = useTimerStore()
 // Modal State
 const isModalOpen = ref(false)
 const isDeleteModalOpen = ref(false)
+const isDeleteMultipleModalOpen = ref(false)
 const isTagManagerOpen = ref(false)
 const taskTitle = ref('')
 const selectedTags = ref<string[]>([])
 const editingTask = ref<Task | LocalTask | null>(null)
 const taskToDelete = ref<Task | LocalTask | null>(null)
+
+// Multiselect State for Completed Tasks
+const isMultiselectMode = ref(false)
+const selectedCompletedTasks = ref<string[]>([])
 
 // Tag Manager State
 const newTagName = ref('')
@@ -827,5 +938,58 @@ async function deleteTask() {
     taskToDelete.value = null
     isDeleteModalOpen.value = false
   }
+}
+
+// ==================== Multiselect Functions ====================
+
+// Enter multiselect mode
+function enterMultiselectMode() {
+  isMultiselectMode.value = true
+  selectedCompletedTasks.value = []
+}
+
+// Exit multiselect mode
+function exitMultiselectMode() {
+  isMultiselectMode.value = false
+  selectedCompletedTasks.value = []
+}
+
+// Toggle task selection
+function toggleTaskSelection(taskId: string) {
+  const index = selectedCompletedTasks.value.indexOf(taskId)
+  if (index === -1) {
+    selectedCompletedTasks.value.push(taskId)
+  } else {
+    selectedCompletedTasks.value.splice(index, 1)
+  }
+}
+
+// Toggle select all
+function toggleSelectAll() {
+  if (selectedCompletedTasks.value.length === taskStore.completedTasks.length) {
+    // Deselect all
+    selectedCompletedTasks.value = []
+  } else {
+    // Select all
+    selectedCompletedTasks.value = taskStore.completedTasks.map(t => t.id)
+  }
+}
+
+// Confirm delete selected
+function confirmDeleteSelected() {
+  if (selectedCompletedTasks.value.length === 0) return
+  isDeleteMultipleModalOpen.value = true
+}
+
+// Delete selected tasks
+async function deleteSelectedTasks() {
+  if (selectedCompletedTasks.value.length === 0) return
+  
+  await taskStore.deleteTasks(selectedCompletedTasks.value)
+  
+  // Reset state
+  selectedCompletedTasks.value = []
+  isMultiselectMode.value = false
+  isDeleteMultipleModalOpen.value = false
 }
 </script>
