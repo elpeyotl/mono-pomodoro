@@ -13,7 +13,10 @@
         </NuxtLink>
 
         <!-- Auth Section -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Info Button -->
+          <AppInfo />
+          
           <!-- Install App Button (only shown when installable) -->
           <UButton
             v-if="canInstall"
