@@ -384,7 +384,26 @@ export const useTaskStore = defineStore('tasks', () => {
   async function toggleComplete(id: string): Promise<void> {
     const task = tasks.value.find(t => t.id === id)
     if (task) {
-      await updateTask(id, { 
+      // Wenn der Task aktiv ist und als completed markiert wird,
+      // speichere die aktuelle Focus-Zeit vom Timer
+      if (task.is_active && !task.is_completed) {
+        const timerStore = useTimerStore()
+        
+        // Nur speichern wenn wir im Focus-Modus sind und der Timer läuft oder gelaufen ist
+        if (timerStore.currentMode === 'focus') {
+          const elapsedTime = timerStore.getElapsedFocusTime()
+          if (elapsedTime > 0) {
+            // Focus-Zeit zum Task hinzufügen
+            await addFocusTime(id, elapsedTime)
+          }
+          // Timer-Session zurücksetzen
+          timerStore.resetSession()
+          // Timer stoppen
+          timerStore.setRunning(false)
+        }
+      }
+      
+      await updateTask(id, {
         is_completed: !task.is_completed,
         is_active: false // Erledigte Tasks können nicht aktiv sein
       })

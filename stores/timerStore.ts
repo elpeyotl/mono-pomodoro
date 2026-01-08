@@ -32,6 +32,10 @@ export const useTimerStore = defineStore('timer', () => {
   const isRunning = ref(false)
   const timeRemaining = ref(25 * 60) // in seconds, synced from PomodoroTimer
 
+  // Focus time tracking (shared across components)
+  const sessionStartTime = ref<number | null>(null)
+  const accumulatedFocusTime = ref(0) // Accumulated time in current session (for pause/resume)
+
   // Local settings (for guest mode)
   const localSettings = useStorage<TimerSettings>('focus-app-timer-settings', { ...DEFAULT_SETTINGS })
   
@@ -73,6 +77,32 @@ export const useTimerStore = defineStore('timer', () => {
 
   function setTimeRemaining(seconds: number) {
     timeRemaining.value = seconds
+  }
+
+  // Session tracking functions
+  function startSession() {
+    sessionStartTime.value = Date.now()
+  }
+
+  function pauseSession() {
+    if (sessionStartTime.value) {
+      accumulatedFocusTime.value += Math.floor((Date.now() - sessionStartTime.value) / 1000)
+      sessionStartTime.value = null
+    }
+  }
+
+  function resetSession() {
+    sessionStartTime.value = null
+    accumulatedFocusTime.value = 0
+  }
+
+  // Get current elapsed focus time (for saving when task is completed)
+  function getElapsedFocusTime(): number {
+    let totalSeconds = accumulatedFocusTime.value
+    if (sessionStartTime.value) {
+      totalSeconds += Math.floor((Date.now() - sessionStartTime.value) / 1000)
+    }
+    return totalSeconds
   }
 
   // Fetch settings from Supabase
@@ -201,11 +231,17 @@ export const useTimerStore = defineStore('timer', () => {
     isLoading,
     isSyncing,
     hasLocalSettings,
+    sessionStartTime,
+    accumulatedFocusTime,
     
     // Actions
     setMode,
     setRunning,
     setTimeRemaining,
+    startSession,
+    pauseSession,
+    resetSession,
+    getElapsedFocusTime,
     fetchSettings,
     saveSettings,
     syncLocalSettingsToSupabase,

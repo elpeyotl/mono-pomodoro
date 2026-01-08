@@ -350,9 +350,9 @@ watch(timerDurations, (newDurations) => {
   }
 }, { deep: true })
 
-// Focus time tracking
-const sessionStartTime = ref<number | null>(null)
-const accumulatedFocusTime = ref(0) // Accumulated time in current session (for pause/resume)
+// Focus time tracking - use timerStore for shared state
+const sessionStartTime = computed(() => timerStore.sessionStartTime)
+const accumulatedFocusTime = computed(() => timerStore.accumulatedFocusTime)
 
 // Mode label for display
 const modeLabel = computed(() => {
@@ -443,18 +443,17 @@ function toggleTimer() {
   if (!isRunning.value) {
     // Starting timer
     if (currentMode.value === 'focus') {
-      sessionStartTime.value = Date.now()
+      timerStore.startSession()
     }
   } else {
     // Pausing timer - save focus time immediately
     if (currentMode.value === 'focus' && sessionStartTime.value && activeTask.value) {
-      const elapsed = Math.floor((Date.now() - sessionStartTime.value) / 1000)
+      const elapsed = timerStore.getElapsedFocusTime()
       if (elapsed > 0) {
         // Save immediately to task
         taskStore.addFocusTime(activeTask.value.id, elapsed)
       }
-      sessionStartTime.value = null
-      accumulatedFocusTime.value = 0 // Reset since we saved
+      timerStore.resetSession()
     }
   }
   isRunning.value = !isRunning.value
@@ -463,10 +462,7 @@ function toggleTimer() {
 function resetTimer() {
   // Save accumulated focus time before reset (if any)
   if (currentMode.value === 'focus' && activeTask.value) {
-    let totalSeconds = accumulatedFocusTime.value
-    if (sessionStartTime.value) {
-      totalSeconds += Math.floor((Date.now() - sessionStartTime.value) / 1000)
-    }
+    const totalSeconds = timerStore.getElapsedFocusTime()
     if (totalSeconds > 0) {
       taskStore.addFocusTime(activeTask.value.id, totalSeconds)
     }
@@ -474,17 +470,13 @@ function resetTimer() {
   
   isRunning.value = false
   timeRemaining.value = timerDurations.value[currentMode.value]
-  sessionStartTime.value = null
-  accumulatedFocusTime.value = 0
+  timerStore.resetSession()
 }
 
 function setMode(mode: TimerMode, autoStart = false) {
   // Save focus time when switching away from focus mode
   if (currentMode.value === 'focus' && mode !== 'focus' && activeTask.value) {
-    let totalSeconds = accumulatedFocusTime.value
-    if (sessionStartTime.value) {
-      totalSeconds += Math.floor((Date.now() - sessionStartTime.value) / 1000)
-    }
+    const totalSeconds = timerStore.getElapsedFocusTime()
     if (totalSeconds > 0) {
       taskStore.addFocusTime(activeTask.value.id, totalSeconds)
     }
@@ -493,15 +485,14 @@ function setMode(mode: TimerMode, autoStart = false) {
   currentMode.value = mode
   isRunning.value = false
   timeRemaining.value = timerDurations.value[mode]
-  sessionStartTime.value = null
-  accumulatedFocusTime.value = 0
+  timerStore.resetSession()
   
   if (autoStart && savedSettings.value.autoStart) {
     // Small delay before auto-starting
     setTimeout(() => {
       isRunning.value = true
       if (mode === 'focus') {
-        sessionStartTime.value = Date.now()
+        timerStore.startSession()
       }
     }, 1000)
   }
@@ -571,10 +562,7 @@ async function onTimerComplete() {
     await taskStore.incrementPomodoro(activeTask.value.id)
     
     // Focus-Zeit hinzufügen (gesamte Session-Dauer)
-    let totalSeconds = accumulatedFocusTime.value
-    if (sessionStartTime.value) {
-      totalSeconds += Math.floor((Date.now() - sessionStartTime.value) / 1000)
-    }
+    let totalSeconds = timerStore.getElapsedFocusTime()
     // Falls keine Zeit getrackt wurde, verwende die Timer-Dauer
     if (totalSeconds === 0) {
       totalSeconds = timerDurations.value.focus
@@ -582,8 +570,7 @@ async function onTimerComplete() {
     await taskStore.addFocusTime(activeTask.value.id, totalSeconds)
     
     // Reset tracking variables
-    sessionStartTime.value = null
-    accumulatedFocusTime.value = 0
+    timerStore.resetSession()
   }
   
   // Browser-Benachrichtigung (falls erlaubt)
@@ -643,7 +630,7 @@ watch(() => timerStore.isRunning, (storeRunning) => {
     }
     // Start the timer
     isRunning.value = true
-    sessionStartTime.value = Date.now()
+    timerStore.startSession()
   }
 })
 
