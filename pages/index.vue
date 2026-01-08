@@ -29,14 +29,27 @@
     <!-- Mobile/Tablet Layout: Swipeable Tabs (< 1024px) -->
     <div class="lg:hidden flex-1 flex flex-col min-h-0">
       <!-- Tab Indicator Dots (above content) -->
-      <div class="flex justify-center gap-2 py-2 flex-shrink-0">
-        <button
-          v-for="(tab, index) in tabs"
-          :key="tab.id"
-          class="w-2 h-2 rounded-full transition-all duration-300"
-          :class="activeTab === index ? 'bg-primary-500 w-6' : 'bg-gray-600'"
-          @click="scrollToTab(index)"
-        />
+      <div class="flex flex-col items-center gap-1 py-2 flex-shrink-0">
+        <div class="flex justify-center gap-2">
+          <button
+            v-for="(tab, index) in tabs"
+            :key="tab.id"
+            class="w-2 h-2 rounded-full transition-all duration-300"
+            :class="activeTab === index ? 'bg-primary-500 w-6' : 'bg-gray-600'"
+            @click="scrollToTab(index)"
+          />
+        </div>
+        <!-- Swipe hint - disappears after first swipe -->
+        <Transition name="fade">
+          <span
+            v-if="showSwipeHint"
+            class="text-xs text-gray-500 flex items-center gap-1"
+          >
+            <UIcon name="i-heroicons-arrow-left" class="w-3 h-3" />
+            <span>Swipe</span>
+            <UIcon name="i-heroicons-arrow-right" class="w-3 h-3" />
+          </span>
+        </Transition>
       </div>
 
       <!-- Swipeable Container -->
@@ -117,6 +130,10 @@ const tabs = [
 const activeTab = ref(0)
 const swipeContainer = ref<HTMLElement | null>(null)
 const tasksContainer = ref<HTMLElement | null>(null)
+
+// Swipe hint - show until first swipe, stored in localStorage
+const swipeHintDismissed = useLocalStorage('mono-swipe-hint-dismissed', false)
+const showSwipeHint = ref(!swipeHintDismissed.value)
 
 // Pending task count for badge
 const pendingTaskCount = computed(() => taskStore.pendingTasks.length)
@@ -284,6 +301,12 @@ function onScroll() {
   const newActiveTab = Math.round(scrollLeft / containerWidth)
   if (newActiveTab !== activeTab.value && newActiveTab >= 0 && newActiveTab < tabs.length) {
     activeTab.value = newActiveTab
+    
+    // Dismiss swipe hint after first swipe
+    if (showSwipeHint.value) {
+      showSwipeHint.value = false
+      swipeHintDismissed.value = true
+    }
   }
 }
 </script>
@@ -301,5 +324,15 @@ function onScroll() {
 /* Safe area for bottom tab bar on iOS */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Fade transition for swipe hint */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
