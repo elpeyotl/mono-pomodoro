@@ -40,16 +40,22 @@
       <div
         ref="swipeContainer"
         class="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4"
-        style="scroll-behavior: smooth;"
+        :style="{ scrollBehavior: 'smooth', height: containerHeight }"
         @scroll="onScroll"
       >
-        <!-- Timer Card -->
-        <div class="flex-shrink-0 w-full snap-center px-1">
+        <!-- Timer Card - centered content -->
+        <div
+          class="flex-shrink-0 w-full snap-center px-1 flex items-center justify-center"
+          :style="{ height: containerHeight }"
+        >
           <PomodoroTimer />
         </div>
 
-        <!-- Tasks Card -->
-        <div class="flex-shrink-0 w-full snap-center px-1">
+        <!-- Tasks Card - scrollable content -->
+        <div
+          class="flex-shrink-0 w-full snap-center px-1 overflow-y-auto scrollbar-hide"
+          :style="{ height: containerHeight }"
+        >
           <TaskList />
         </div>
       </div>
@@ -92,9 +98,22 @@
 </template>
 
 <script setup lang="ts">
+import { useWindowSize } from '@vueuse/core'
+
 const user = useSupabaseUser()
 const timerStore = useTimerStore()
 const taskStore = useTaskStore()
+
+// Window size for dynamic container height
+const { height: windowHeight } = useWindowSize()
+
+// Calculate container height: viewport - navbar (64px) - welcome section (~100px) - tab dots (32px) - bottom bar (80px) - padding (40px)
+const containerHeight = computed(() => {
+  const offset = 316 // Total offset for fixed elements
+  const minHeight = 400 // Minimum height
+  const calculatedHeight = windowHeight.value - offset
+  return `${Math.max(calculatedHeight, minHeight)}px`
+})
 
 // Tabs configuration
 const tabs = [
