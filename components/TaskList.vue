@@ -755,7 +755,10 @@ async function addSubtaskToTask(taskId: string) {
 function openAddModal() {
   editingTask.value = null
   taskTitle.value = ''
-  selectedTags.value = []
+  // Pre-select the active tag filter if one is set
+  selectedTags.value = taskStore.activeTagFilter
+    ? [taskStore.activeTagFilter]
+    : []
   isModalOpen.value = true
 }
 
