@@ -36,3 +36,6 @@ logs
 
 # TypeScript
 *.tsbuildinfo
+
+# Private docs (keep locally, don't push to public repo)
+docs/
