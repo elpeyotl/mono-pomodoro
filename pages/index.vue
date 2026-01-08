@@ -156,19 +156,49 @@ function scrollToTaskList() {
   const activeTask = taskStore.activeTask
   if (!activeTask) return
   
+  // Check if the active task is visible with the current tag filter
+  const currentFilter = taskStore.activeTagFilter
+  const taskTags = activeTask.tags || []
+  
+  // If a filter is active and the task doesn't have that tag, switch filter
+  if (currentFilter !== null) {
+    const taskHasCurrentFilter = taskTags.includes(currentFilter)
+    
+    if (!taskHasCurrentFilter) {
+      // Switch to the first tag of the task, or "All" if no tags
+      if (taskTags.length > 0) {
+        taskStore.setTagFilter(taskTags[0])
+      } else {
+        taskStore.setTagFilter(null) // Show all
+      }
+      
+      // Wait a tick for the filter to update before scrolling
+      nextTick(() => {
+        performScrollToTask(activeTask.id)
+      })
+      return
+    }
+  }
+  
+  // Task is visible with current filter, just scroll
+  performScrollToTask(activeTask.id)
+}
+
+// Helper function to perform the actual scroll
+function performScrollToTask(taskId: string) {
   // On mobile, switch to Tasks tab first, then scroll to task
   if (isMobileView() && swipeContainer.value) {
     scrollToTab(1)
     
     // Wait for horizontal scroll to complete
     setTimeout(() => {
-      scrollToActiveTask(activeTask.id, true)
+      scrollToActiveTask(taskId, true)
     }, 500)
     return
   }
   
   // On desktop, scroll to the active task directly
-  scrollToActiveTask(activeTask.id, false)
+  scrollToActiveTask(taskId, false)
 }
 
 // Scroll to a specific task and highlight it
