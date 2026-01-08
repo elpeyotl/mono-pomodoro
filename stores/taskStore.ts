@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useStorage } from '@vueuse/core'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Task, LocalTask, Subtask, CustomTag, TagColor } from '~/types'
 
 export const useTaskStore = defineStore('tasks', () => {
@@ -18,6 +19,9 @@ export const useTaskStore = defineStore('tasks', () => {
   const supabaseTags = ref<CustomTag[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  
+  // Realtime Subscription
+  let realtimeChannel: RealtimeChannel | null = null
   
   // Tag-Filter (null = alle anzeigen)
   const activeTagFilter = useStorage<string | null>('focus-app-tag-filter', null)
@@ -574,17 +578,108 @@ export const useTaskStore = defineStore('tasks', () => {
   // Prüfen ob lokale Tasks existieren (für Sync-Prompt)
   const hasLocalTasks = computed(() => localTasks.value.length > 0)
 
+  // ==================== Realtime Subscription ====================
+
+  // Realtime-Subscription für Tasks starten
+  function subscribeToRealtime(): void {
+    if (!user.value || realtimeChannel) return
+
+    console.log('[Realtime] Subscribing to tasks channel...')
+    
+    realtimeChannel = supabase
+      .channel(`tasks-${user.value.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.value.id}`
+        },
+        (payload: any) => {
+          console.log('[Realtime] INSERT received:', payload.new.id)
+          // Nur hinzufügen wenn der Task noch nicht existiert (vermeidet Duplikate)
+          const exists = supabaseTasks.value.some(t => t.id === payload.new.id)
+          if (!exists) {
+            supabaseTasks.value.push(payload.new as Task)
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.value.id}`
+        },
+        (payload: any) => {
+          console.log('[Realtime] UPDATE received:', payload.new.id)
+          const index = supabaseTasks.value.findIndex(t => t.id === payload.new.id)
+          if (index !== -1) {
+            // Nur aktualisieren wenn die Daten neuer sind
+            const existingTask = supabaseTasks.value[index]
+            const newUpdatedAt = new Date(payload.new.updated_at).getTime()
+            const existingUpdatedAt = new Date(existingTask.updated_at).getTime()
+            
+            if (newUpdatedAt >= existingUpdatedAt) {
+              supabaseTasks.value[index] = payload.new as Task
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'tasks',
+          filter: `user_id=eq.${user.value.id}`
+        },
+        (payload: any) => {
+          console.log('[Realtime] DELETE received:', payload.old.id)
+          supabaseTasks.value = supabaseTasks.value.filter(t => t.id !== payload.old.id)
+        }
+      )
+      .subscribe((status: string) => {
+        console.log('[Realtime] Subscription status:', status)
+      })
+  }
+
+  // Realtime-Subscription beenden
+  function unsubscribeFromRealtime(): void {
+    if (realtimeChannel) {
+      console.log('[Realtime] Unsubscribing from tasks channel...')
+      supabase.removeChannel(realtimeChannel)
+      realtimeChannel = null
+    }
+  }
+
   // ==================== Watchers ====================
 
-  // Bei User-Änderung Tasks und Tags laden
-  watch(user, async (newUser) => {
+  // Bei User-Änderung Tasks und Tags laden + Realtime starten/stoppen
+  watch(user, async (newUser, oldUser) => {
+    // Alte Subscription beenden
+    if (oldUser && !newUser) {
+      unsubscribeFromRealtime()
+    }
+    
     if (newUser) {
       await Promise.all([fetchTasks(), fetchTags()])
+      // Realtime-Subscription starten
+      subscribeToRealtime()
     } else {
       supabaseTasks.value = []
       supabaseTags.value = []
     }
   }, { immediate: true })
+
+  // Cleanup bei Store-Zerstörung (z.B. bei Hot-Reload)
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      unsubscribeFromRealtime()
+    })
+  }
 
   // Tag zu einem Task hinzufügen/entfernen
   async function toggleTaskTag(taskId: string, tagId: string): Promise<void> {
