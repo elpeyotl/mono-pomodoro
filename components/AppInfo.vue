@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version
-const appVersion = '1.6.0'
+const appVersion = '1.7.0'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,16 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.7.0',
+    date: 'January 8, 2026',
+    changes: [
+      { type: 'feature', text: 'Onboarding flow for new users (3 steps)' },
+      { type: 'feature', text: 'Welcome tutorial explaining Pomodoro technique' },
+      { type: 'feature', text: 'Task management guide' },
+      { type: 'feature', text: 'Keyboard shortcuts introduction' }
+    ]
+  },
   {
     version: '1.6.0',
     date: 'January 8, 2026',

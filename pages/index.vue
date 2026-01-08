@@ -1,5 +1,8 @@
 <template>
   <div class="h-full lg:h-auto flex flex-col lg:block space-y-4 lg:space-y-8">
+    <!-- Onboarding Flow for new users -->
+    <OnboardingFlow />
+    
     <!-- Welcome Message - Hidden on mobile to maximize timer space -->
     <div class="hidden lg:block text-center">
       <h1 class="text-3xl font-bold mb-2">
