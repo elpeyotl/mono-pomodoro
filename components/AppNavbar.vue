@@ -14,6 +14,27 @@
 
         <!-- Auth Section -->
         <div class="flex items-center gap-3">
+          <!-- Install App Button (only shown when installable) -->
+          <UButton
+            v-if="canInstall"
+            icon="i-heroicons-arrow-down-tray"
+            label="Install"
+            color="primary"
+            variant="soft"
+            size="sm"
+            class="hidden sm:inline-flex"
+            @click="installApp"
+          />
+          <UButton
+            v-if="canInstall"
+            icon="i-heroicons-arrow-down-tray"
+            color="primary"
+            variant="soft"
+            size="sm"
+            class="sm:hidden"
+            @click="installApp"
+          />
+          
           <template v-if="!user">
             <UButton
               icon="i-heroicons-arrow-right-on-rectangle"
@@ -48,6 +69,56 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+
+// PWA Install Prompt
+const deferredPrompt = ref<any>(null)
+const canInstall = ref(false)
+
+// Listen for the beforeinstallprompt event
+onMounted(() => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault()
+      // Stash the event so it can be triggered later
+      deferredPrompt.value = e
+      // Update UI to show install button
+      canInstall.value = true
+      console.log('PWA: Install prompt available')
+    })
+
+    // Listen for successful installation
+    window.addEventListener('appinstalled', () => {
+      console.log('PWA: App was installed')
+      canInstall.value = false
+      deferredPrompt.value = null
+    })
+
+    // Check if already installed (standalone mode)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      console.log('PWA: Already installed')
+      canInstall.value = false
+    }
+  }
+})
+
+async function installApp() {
+  if (!deferredPrompt.value) {
+    console.log('PWA: No install prompt available')
+    return
+  }
+
+  // Show the install prompt
+  deferredPrompt.value.prompt()
+
+  // Wait for the user to respond to the prompt
+  const { outcome } = await deferredPrompt.value.userChoice
+  console.log(`PWA: User response to install prompt: ${outcome}`)
+
+  // Clear the deferred prompt
+  deferredPrompt.value = null
+  canInstall.value = false
+}
 
 async function signInWithGoogle() {
   await supabase.auth.signInWithOAuth({
