@@ -1,11 +1,11 @@
 <template>
-  <div class="space-y-6 lg:space-y-8">
-    <!-- Welcome Message -->
-    <div class="text-center">
-      <h1 class="text-2xl lg:text-3xl font-bold mb-2">
+  <div class="space-y-4 lg:space-y-8">
+    <!-- Welcome Message - Hidden on mobile to maximize timer space -->
+    <div class="hidden lg:block text-center">
+      <h1 class="text-3xl font-bold mb-2">
         {{ user ? `Welcome back, ${user.email?.split('@')[0]}` : 'One task at a time.' }}
       </h1>
-      <p class="text-gray-400 text-sm lg:text-base">
+      <p class="text-gray-400 text-base">
         {{ user ? 'Your focus sessions are synced to the cloud.' : 'You are in guest mode. Login to sync your data.' }}
       </p>
     </div>
@@ -113,9 +113,10 @@ const taskStore = useTaskStore()
 // Window size for dynamic container height
 const { height: windowHeight } = useWindowSize()
 
-// Calculate container height: viewport - navbar (64px) - welcome section (~100px) - tab dots (32px) - bottom bar (80px) - padding (40px)
+// Calculate container height for mobile: viewport - navbar (64px) - tab dots (32px) - bottom bar (80px) - padding (24px)
+// Welcome message is hidden on mobile, so we have more space
 const containerHeight = computed(() => {
-  const offset = 316 // Total offset for fixed elements
+  const offset = 200 // Total offset for fixed elements (no welcome message on mobile)
   const minHeight = 400 // Minimum height
   const calculatedHeight = windowHeight.value - offset
   return `${Math.max(calculatedHeight, minHeight)}px`
