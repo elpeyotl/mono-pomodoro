@@ -30,6 +30,7 @@ export const useTimerStore = defineStore('timer', () => {
   // Timer state
   const currentMode = ref<TimerMode>('focus')
   const isRunning = ref(false)
+  const timeRemaining = ref(25 * 60) // in seconds, synced from PomodoroTimer
 
   // Local settings (for guest mode)
   const localSettings = useStorage<TimerSettings>('focus-app-timer-settings', { ...DEFAULT_SETTINGS })
@@ -68,6 +69,10 @@ export const useTimerStore = defineStore('timer', () => {
 
   function setRunning(running: boolean) {
     isRunning.value = running
+  }
+
+  function setTimeRemaining(seconds: number) {
+    timeRemaining.value = seconds
   }
 
   // Fetch settings from Supabase
@@ -191,6 +196,7 @@ export const useTimerStore = defineStore('timer', () => {
     // State
     currentMode,
     isRunning,
+    timeRemaining,
     settings,
     isLoading,
     isSyncing,
@@ -199,6 +205,7 @@ export const useTimerStore = defineStore('timer', () => {
     // Actions
     setMode,
     setRunning,
+    setTimeRemaining,
     fetchSettings,
     saveSettings,
     syncLocalSettingsToSupabase,

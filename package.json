@@ -25,6 +25,7 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
+    "@vite-pwa/nuxt": "^1.1.0",
     "typescript": "^5.7.2"
   }
 }

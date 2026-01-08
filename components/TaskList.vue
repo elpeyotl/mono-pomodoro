@@ -187,40 +187,37 @@
                     </div>
                   </div>
 
-                  <!-- Actions -->
-                  <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <!-- Actions - Always visible on mobile, hover on desktop -->
+                  <div class="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <!-- Set Active Button -->
-                    <UTooltip :text="task.is_active ? 'Deactivate' : 'Start Focus'">
-                      <UButton
-                        :icon="task.is_active ? 'i-heroicons-pause' : 'i-heroicons-play'"
-                        size="xs"
-                        color="primary"
-                        :variant="task.is_active ? 'soft' : 'outline'"
-                        @click="toggleActive(task)"
-                      />
-                    </UTooltip>
+                    <UButton
+                      :icon="task.is_active ? 'i-heroicons-pause' : 'i-heroicons-play'"
+                      size="xs"
+                      color="primary"
+                      :variant="task.is_active ? 'soft' : 'outline'"
+                      :aria-label="task.is_active ? 'Deactivate' : 'Start Focus'"
+                      @click="toggleActive(task)"
+                    />
                     
                     <!-- Edit Button -->
-                    <UTooltip text="Edit">
-                      <UButton
-                        icon="i-heroicons-pencil"
-                        size="xs"
-                        color="primary"
-                        variant="outline"
-                        @click="openEditModal(task)"
-                      />
-                    </UTooltip>
+                    <UButton
+                      icon="i-heroicons-pencil"
+                      size="xs"
+                      color="primary"
+                      variant="outline"
+                      aria-label="Edit"
+                      @click="openEditModal(task)"
+                    />
                     
                     <!-- Delete Button -->
-                    <UTooltip text="Delete">
-                      <UButton
-                        icon="i-heroicons-trash"
-                        size="xs"
-                        color="red"
-                        variant="outline"
-                        @click="confirmDelete(task)"
-                      />
-                    </UTooltip>
+                    <UButton
+                      icon="i-heroicons-trash"
+                      size="xs"
+                      color="red"
+                      variant="outline"
+                      aria-label="Delete"
+                      @click="confirmDelete(task)"
+                    />
                   </div>
                 </div>
                 
@@ -331,13 +328,14 @@
                 </div>
               </div>
 
-              <!-- Delete Button -->
+              <!-- Delete Button - Always visible on mobile -->
               <UButton
                 icon="i-heroicons-trash"
                 size="xs"
                 color="red"
                 variant="outline"
-                class="opacity-0 group-hover:opacity-100 transition-opacity"
+                class="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                aria-label="Delete"
                 @click="confirmDelete(task)"
               />
             </div>

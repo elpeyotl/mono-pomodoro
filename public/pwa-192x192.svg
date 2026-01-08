@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <rect width="192" height="192" rx="24" fill="#0f172a"/>
+  <circle cx="96" cy="96" r="60" stroke="#14b8a6" stroke-width="8" fill="none"/>
+  <circle cx="96" cy="96" r="60" stroke="#14b8a6" stroke-width="8" fill="none" stroke-dasharray="377" stroke-dashoffset="94" stroke-linecap="round" transform="rotate(-90 96 96)"/>
+  <text x="96" y="108" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="bold" fill="#14b8a6">M</text>
+</svg>

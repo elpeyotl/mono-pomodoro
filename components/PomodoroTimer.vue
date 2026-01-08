@@ -128,8 +128,8 @@
         />
       </UButtonGroup>
       
-      <!-- Keyboard Shortcuts Hint -->
-      <div class="text-xs text-gray-500 mt-4 flex items-center gap-2">
+      <!-- Keyboard Shortcuts Hint - Hidden on mobile -->
+      <div class="hidden md:flex text-xs text-gray-500 mt-4 items-center gap-2">
         <UIcon name="i-heroicons-command-line" class="w-3 h-3" />
         <span>
           <kbd class="px-1.5 py-0.5 bg-gray-700 rounded text-gray-300 font-mono text-[10px]">Space</kbd> Play/Pause
@@ -618,13 +618,18 @@ watch(isRunning, (running) => {
   }
 })
 
-// Sync timer state to timerStore for background animation
+// Sync timer state to timerStore for background animation and mobile tab display
 watch(currentMode, (mode) => {
   timerStore.setMode(mode)
 }, { immediate: true })
 
 watch(isRunning, (running) => {
   timerStore.setRunning(running)
+}, { immediate: true })
+
+// Sync timeRemaining to store for mobile tab display
+watch(timeRemaining, (time) => {
+  timerStore.setTimeRemaining(time)
 }, { immediate: true })
 
 // Watch for external timer start requests (e.g., from TaskList when activating a task)
