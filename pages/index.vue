@@ -91,7 +91,7 @@
             <!-- Task count badge -->
             <span
               v-if="tab.id === 'tasks' && pendingTaskCount > 0"
-              class="absolute top-2 right-1/4 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold bg-primary-500 text-white"
+              class="absolute top-1 right-1/3 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold bg-primary-500 text-white"
             >
               {{ pendingTaskCount > 99 ? '99+' : pendingTaskCount }}
             </span>
