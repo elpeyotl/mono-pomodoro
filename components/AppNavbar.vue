@@ -53,13 +53,23 @@
               <UIcon name="i-heroicons-user-circle" class="w-5 h-5 text-primary-400" />
               <span class="hidden sm:inline max-w-[150px] truncate">{{ user.email }}</span>
             </div>
-            <!-- Logout Button -->
+            <!-- Logout Button - Desktop with label -->
             <UButton
               icon="i-heroicons-arrow-left-on-rectangle"
               label="Logout"
               color="white"
               variant="outline"
               size="sm"
+              class="hidden sm:inline-flex"
+              @click="signOut"
+            />
+            <!-- Logout Button - Mobile icon only -->
+            <UButton
+              icon="i-heroicons-arrow-left-on-rectangle"
+              color="white"
+              variant="outline"
+              size="sm"
+              class="sm:hidden"
               @click="signOut"
             />
           </template>
