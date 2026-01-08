@@ -79,15 +79,15 @@
             @click="scrollToTab(index)"
           >
             <UIcon :name="tab.icon" class="w-6 h-6" />
-            <span class="text-xs font-medium">{{ tab.label }}</span>
-            <!-- Timer countdown in tab when running -->
+            <!-- Timer: show countdown when running, otherwise show label -->
             <span
               v-if="tab.id === 'timer' && timerStore.isRunning"
-              class="text-[10px] font-mono"
+              class="text-xs font-mono font-medium"
               :class="timerColorClass"
             >
               {{ formattedTime }}
             </span>
+            <span v-else class="text-xs font-medium">{{ tab.label }}</span>
             <!-- Task count badge -->
             <span
               v-if="tab.id === 'tasks' && pendingTaskCount > 0"
