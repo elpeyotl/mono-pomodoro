@@ -18,6 +18,11 @@
     
     <!-- Sync Dialog (appears after login if local tasks exist) -->
     <SyncDialog />
+    
+    <!-- PWA Update Prompt (shows toast when new version available) -->
+    <ClientOnly>
+      <PwaUpdatePrompt />
+    </ClientOnly>
   </div>
 </template>
 

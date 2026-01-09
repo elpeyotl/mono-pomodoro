@@ -37,7 +37,7 @@ export default defineNuxtConfig({
 
   // PWA Konfiguration
   pwa: {
-    registerType: 'autoUpdate',
+    registerType: 'prompt',
     manifest: {
       name: 'Mono - Pomodoro Focus App',
       short_name: 'Mono',

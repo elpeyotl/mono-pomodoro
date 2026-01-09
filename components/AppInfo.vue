@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version - also exported for use in other components
-const appVersion = '1.10.0'
+const appVersion = '1.11.0'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,15 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.11.0',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'feature', text: 'PWA Update Prompt: Get notified when a new version is available' },
+      { type: 'improvement', text: 'One-click update without closing the app' },
+      { type: 'improvement', text: 'No more manual refresh needed for updates' }
+    ]
+  },
   {
     version: '1.10.0',
     date: 'January 9, 2026',
