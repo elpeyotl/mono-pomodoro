@@ -39,3 +39,6 @@ logs
 
 # Private docs (keep locally, don't push to public repo)
 docs/
+# npm config files
+.npmrc
+.npmrc.local
