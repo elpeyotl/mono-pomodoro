@@ -41,10 +41,18 @@
           <template v-if="!user">
             <UButton
               icon="i-heroicons-arrow-right-on-rectangle"
-              label="Login with Google"
+              label="Login"
               color="primary"
               variant="soft"
-              @click="signInWithGoogle"
+              class="hidden sm:inline-flex"
+              @click="showAuthModal = true"
+            />
+            <UButton
+              icon="i-heroicons-arrow-right-on-rectangle"
+              color="primary"
+              variant="soft"
+              class="sm:hidden"
+              @click="showAuthModal = true"
             />
           </template>
           <template v-else>
@@ -76,12 +84,18 @@
         </div>
       </div>
     </div>
+    
+    <!-- Auth Modal -->
+    <AuthModal v-model="showAuthModal" />
   </nav>
 </template>
 
 <script setup lang="ts">
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+
+// Auth Modal
+const showAuthModal = ref(false)
 
 // PWA Install Prompt
 const deferredPrompt = ref<any>(null)
@@ -131,15 +145,6 @@ async function installApp() {
   // Clear the deferred prompt
   deferredPrompt.value = null
   canInstall.value = false
-}
-
-async function signInWithGoogle() {
-  await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/confirm`
-    }
-  })
 }
 
 async function signOut() {
