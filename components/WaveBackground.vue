@@ -256,6 +256,26 @@ onMounted(() => {
 onUnmounted(() => {
   cleanup()
 })
+
+// Watch for mode changes - immediately update colors when mode changes
+// This is important for when the tab was in background and animation was paused
+watch(() => props.mode, (newMode) => {
+  if (!mesh) return
+  
+  const targetMode = modeColors[newMode]
+  
+  // Immediately set colors to target (or use faster lerp)
+  // This ensures the background updates even if animation was paused
+  currentColors.color1.copy(targetMode.color1)
+  currentColors.color2.copy(targetMode.color2)
+  currentColors.color3.copy(targetMode.color3)
+  currentColors.speed = targetMode.speed
+})
+
+// Also watch isRunning for immediate intensity update
+watch(() => props.isRunning, (running) => {
+  currentColors.intensity = running ? 1.0 : 0.5
+})
 </script>
 
 <style scoped>
