@@ -151,7 +151,7 @@ export const useTimerStore = defineStore('timer', () => {
       focus: Math.max(1, Math.min(120, newSettings.focus || 25)),
       shortBreak: Math.max(1, Math.min(30, newSettings.shortBreak || 5)),
       longBreak: Math.max(1, Math.min(60, newSettings.longBreak || 15)),
-      longBreakInterval: Math.max(2, Math.min(10, newSettings.longBreakInterval || 4)),
+      longBreakInterval: Math.max(1, Math.min(10, newSettings.longBreakInterval || 4)), // Allow 1 session
       autoStart: newSettings.autoStart ?? true,
       soundEnabled: newSettings.soundEnabled ?? true
     }

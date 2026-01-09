@@ -241,7 +241,7 @@
             <UInput
               v-model.number="settingsForm.longBreakInterval"
               type="number"
-              min="2"
+              min="1"
               max="10"
               color="gray"
               variant="outline"
@@ -595,24 +595,64 @@ async function onTimerComplete() {
   switchToNextMode(true)
 }
 
-// Timer interval
+// Timer interval with absolute end time for accuracy in background tabs
 let intervalId: ReturnType<typeof setInterval> | null = null
+let timerEndTime: number | null = null // Absolute timestamp when timer should end
+
+function startTimerInterval() {
+  // Calculate absolute end time
+  timerEndTime = Date.now() + (timeRemaining.value * 1000)
+  
+  intervalId = setInterval(() => {
+    if (timerEndTime) {
+      const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
+      
+      if (remaining <= 0) {
+        timeRemaining.value = 0
+        onTimerComplete()
+      } else {
+        timeRemaining.value = remaining
+      }
+    }
+  }, 1000)
+}
+
+function stopTimerInterval() {
+  if (intervalId) {
+    clearInterval(intervalId)
+    intervalId = null
+  }
+  timerEndTime = null
+}
 
 watch(isRunning, (running) => {
   if (running) {
-    intervalId = setInterval(() => {
-      if (timeRemaining.value > 0) {
-        timeRemaining.value--
-      } else {
-        onTimerComplete()
-      }
-    }, 1000)
+    startTimerInterval()
   } else {
-    if (intervalId) {
-      clearInterval(intervalId)
-      intervalId = null
+    stopTimerInterval()
+  }
+})
+
+// Handle tab visibility changes - recalculate time when tab becomes visible
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible' && isRunning.value && timerEndTime) {
+    const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
+    
+    if (remaining <= 0) {
+      timeRemaining.value = 0
+      onTimerComplete()
+    } else {
+      timeRemaining.value = remaining
     }
   }
+}
+
+onMounted(() => {
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 // Sync timer state to timerStore for background animation and mobile tab display
@@ -653,9 +693,7 @@ onMounted(() => {
 
 // Cleanup on unmount
 onUnmounted(() => {
-  if (intervalId) {
-    clearInterval(intervalId)
-  }
+  stopTimerInterval()
 })
 
 // ============================================
