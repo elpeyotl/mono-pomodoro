@@ -264,7 +264,7 @@ const changelog = [
     changes: [
       { type: 'feature', text: 'Overtime mode: Timer counts into negative when Auto-Start is OFF' },
       { type: 'feature', text: 'Finish your task at your own pace, then click Skip when ready' },
-      { type: 'improvement', text: 'Orange color indicator when in overtime mode' },
+      { type: 'improvement', text: 'Green color indicator when in overtime mode (positive reinforcement!)' },
       { type: 'improvement', text: 'Overtime is added to focus time tracking' },
       { type: 'improvement', text: 'Auto-Start now defaults to OFF for more flexibility' },
       { type: 'fix', text: 'Fixed SSR hydration issue causing double timer completion' }

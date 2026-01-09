@@ -81,11 +81,11 @@
         <div class="absolute inset-0 flex flex-col items-center justify-center">
           <span
             class="text-4xl font-mono font-bold"
-            :class="{ 'text-orange-400': isOverflow }"
+            :class="{ 'text-green-400': isOverflow }"
           >{{ formattedTime }}</span>
           <span
             class="text-xs mt-1"
-            :class="isOverflow ? 'text-orange-400' : 'text-gray-400'"
+            :class="isOverflow ? 'text-green-400' : 'text-gray-400'"
           >{{ modeLabel }}</span>
         </div>
       </div>
@@ -390,8 +390,8 @@ const modeLabel = computed(() => {
 
 // Progress color based on mode - matching the wave background colors
 const progressColorClass = computed(() => {
-  // Orange color when in overflow mode
-  if (isOverflow.value) return 'text-orange-400'
+  // Green color when in overflow mode (positive - you're still working!)
+  if (isOverflow.value) return 'text-green-400'
   
   switch (currentMode.value) {
     case 'focus': return 'text-primary-500'    // Turquoise/teal (original)
