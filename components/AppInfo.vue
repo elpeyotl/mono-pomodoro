@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version - also exported for use in other components
-const appVersion = '1.11.1'
+const appVersion = '1.11.2'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,14 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.11.2',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'fix', text: 'PWA Update Prompt now uses direct Service Worker API' },
+      { type: 'improvement', text: 'More reliable update detection without $pwa plugin dependency' }
+    ]
+  },
   {
     version: '1.11.1',
     date: 'January 9, 2026',

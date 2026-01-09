@@ -1,48 +1,84 @@
 <script setup lang="ts">
 // PWA Update Prompt - Shows a toast when a new version is available
-// Uses @vite-pwa/nuxt's registerType: 'prompt' mode
+// Uses direct Service Worker API instead of $pwa plugin for reliability
 
 const toast = useToast()
 
 // Track if we've shown the update toast
 const hasShownUpdate = ref(false)
+const waitingWorker = ref<ServiceWorker | null>(null)
 
 onMounted(() => {
-  // Only run on client
-  if (typeof window === 'undefined') return
-  
-  // Get the PWA plugin from Nuxt app
-  const nuxtApp = useNuxtApp()
-  const pwa = nuxtApp.$pwa as {
-    needRefresh?: { value: boolean }
-    updateServiceWorker?: () => Promise<void>
-  } | undefined
-  
-  if (!pwa) {
-    console.log('PWA plugin not available')
+  // Only run on client with service worker support
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    console.log('Service Worker not supported')
     return
   }
   
-  // Check for updates periodically
-  const checkForUpdates = () => {
-    if (pwa.needRefresh?.value && !hasShownUpdate.value) {
-      hasShownUpdate.value = true
-      showUpdateToast(pwa.updateServiceWorker)
-    }
-  }
-  
-  // Initial check
+  // Check for updates on mount and periodically
   checkForUpdates()
   
-  // Check every 5 seconds (the service worker checks hourly, but we poll the state)
-  const interval = setInterval(checkForUpdates, 5000)
+  // Check every 10 seconds for waiting service worker
+  const interval = setInterval(checkForUpdates, 10000)
+  
+  // Listen for new service worker installing
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // New service worker has taken control, reload the page
+    console.log('New service worker activated, reloading...')
+    window.location.reload()
+  })
   
   onUnmounted(() => {
     clearInterval(interval)
   })
 })
 
-function showUpdateToast(updateFn?: () => Promise<void>) {
+async function checkForUpdates() {
+  try {
+    const registration = await navigator.serviceWorker.getRegistration()
+    
+    if (!registration) {
+      console.log('No service worker registration found')
+      return
+    }
+    
+    // Check if there's a waiting service worker
+    if (registration.waiting && !hasShownUpdate.value) {
+      console.log('Update available! Showing toast...')
+      waitingWorker.value = registration.waiting
+      hasShownUpdate.value = true
+      showUpdateToast()
+    }
+    
+    // Listen for new service worker becoming available
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing
+      if (!newWorker) return
+      
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // New service worker is installed and waiting
+          if (!hasShownUpdate.value) {
+            console.log('New update installed, showing toast...')
+            waitingWorker.value = newWorker
+            hasShownUpdate.value = true
+            showUpdateToast()
+          }
+        }
+      })
+    })
+    
+    // Trigger update check
+    registration.update().catch(err => {
+      console.log('Update check failed:', err)
+    })
+    
+  } catch (error) {
+    console.error('Error checking for updates:', error)
+  }
+}
+
+function showUpdateToast() {
   toast.add({
     id: 'pwa-update',
     title: '🎉 New version available!',
@@ -53,7 +89,7 @@ function showUpdateToast(updateFn?: () => Promise<void>) {
     actions: [
       {
         label: 'Update now',
-        click: () => handleUpdate(updateFn)
+        click: handleUpdate
       },
       {
         label: 'Later',
@@ -70,7 +106,7 @@ function showUpdateToast(updateFn?: () => Promise<void>) {
   })
 }
 
-async function handleUpdate(updateFn?: () => Promise<void>) {
+function handleUpdate() {
   toast.remove('pwa-update')
   
   // Show loading toast
@@ -83,23 +119,16 @@ async function handleUpdate(updateFn?: () => Promise<void>) {
     timeout: 0
   })
   
-  try {
-    if (updateFn) {
-      await updateFn()
-    }
-    // Reload the page to activate the new service worker
-    window.location.reload()
-  } catch (error) {
-    console.error('Failed to update:', error)
-    toast.remove('pwa-updating')
-    toast.add({
-      title: 'Update failed',
-      description: 'Please try refreshing the page manually.',
-      icon: 'i-heroicons-exclamation-triangle',
-      color: 'red',
-      timeout: 5000
-    })
+  // Tell the waiting service worker to skip waiting and become active
+  if (waitingWorker.value) {
+    waitingWorker.value.postMessage({ type: 'SKIP_WAITING' })
   }
+  
+  // The controllerchange event listener will reload the page
+  // But as a fallback, reload after a short delay
+  setTimeout(() => {
+    window.location.reload()
+  }, 1000)
 }
 </script>
 
