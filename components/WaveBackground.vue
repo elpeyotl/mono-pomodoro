@@ -259,10 +259,16 @@ onUnmounted(() => {
 
 // Watch for mode changes - immediately update colors when mode changes
 // This is important for when the tab was in background and animation was paused
-watch(() => props.mode, (newMode) => {
-  if (!mesh) return
+watch(() => props.mode, (newMode, oldMode) => {
+  console.log('[WaveBackground] Mode changed:', oldMode, '->', newMode)
+  
+  if (!mesh) {
+    console.log('[WaveBackground] No mesh yet, skipping color update')
+    return
+  }
   
   const targetMode = modeColors[newMode]
+  console.log('[WaveBackground] Updating colors to:', newMode, targetMode)
   
   // Immediately set colors to target (or use faster lerp)
   // This ensures the background updates even if animation was paused
@@ -270,10 +276,13 @@ watch(() => props.mode, (newMode) => {
   currentColors.color2.copy(targetMode.color2)
   currentColors.color3.copy(targetMode.color3)
   currentColors.speed = targetMode.speed
+  
+  console.log('[WaveBackground] Colors updated successfully')
 })
 
 // Also watch isRunning for immediate intensity update
 watch(() => props.isRunning, (running) => {
+  console.log('[WaveBackground] isRunning changed:', running)
   currentColors.intensity = running ? 1.0 : 0.5
 })
 </script>

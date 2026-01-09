@@ -14,10 +14,10 @@ export interface TimerSettings {
 
 // Default settings
 export const DEFAULT_SETTINGS: TimerSettings = {
-  focus: 25,
-  shortBreak: 5,
-  longBreak: 15,
-  longBreakInterval: 4,
+  focus: 25,           // 25 min
+  shortBreak: 5,       // 5 min
+  longBreak: 15,       // 15 min
+  longBreakInterval: 4, // 4 sessions
   autoStart: true,
   soundEnabled: true
 }
@@ -31,6 +31,10 @@ export const useTimerStore = defineStore('timer', () => {
   const currentMode = ref<TimerMode>('focus')
   const isRunning = ref(false)
   const timeRemaining = ref(25 * 60) // in seconds, synced from PomodoroTimer
+
+  // Global debounce for timer completion (prevents double execution from SSR hydration)
+  const lastCompletionTime = ref(0)
+  const COMPLETION_DEBOUNCE_MS = 2000
 
   // Focus time tracking (shared across components)
   const sessionStartTime = ref<number | null>(null)
@@ -68,7 +72,9 @@ export const useTimerStore = defineStore('timer', () => {
   // ==================== Actions ====================
 
   function setMode(mode: TimerMode) {
+    console.log('[timerStore] setMode called:', mode, 'previous:', currentMode.value)
     currentMode.value = mode
+    console.log('[timerStore] currentMode is now:', currentMode.value)
   }
 
   function setRunning(running: boolean) {
@@ -103,6 +109,17 @@ export const useTimerStore = defineStore('timer', () => {
       totalSeconds += Math.floor((Date.now() - sessionStartTime.value) / 1000)
     }
     return totalSeconds
+  }
+
+  // Check if timer completion should be debounced (prevents double execution from SSR hydration)
+  function shouldDebounceCompletion(): boolean {
+    const now = Date.now()
+    if (now - lastCompletionTime.value < COMPLETION_DEBOUNCE_MS) {
+      console.log('[timerStore] Completion debounced - too soon after last completion')
+      return true
+    }
+    lastCompletionTime.value = now
+    return false
   }
 
   // Fetch settings from Supabase
@@ -145,13 +162,14 @@ export const useTimerStore = defineStore('timer', () => {
   }
 
   // Save settings to Supabase (upsert)
+  // Note: Decimal values like 0.167 (10 seconds) are allowed for testing
   async function saveSettings(newSettings: TimerSettings): Promise<boolean> {
-    // Validate values
+    // Validate values - allow decimal values for testing (e.g., 0.167 = 10 seconds)
     const validated: TimerSettings = {
-      focus: Math.max(1, Math.min(120, newSettings.focus || 25)),
-      shortBreak: Math.max(1, Math.min(30, newSettings.shortBreak || 5)),
-      longBreak: Math.max(1, Math.min(60, newSettings.longBreak || 15)),
-      longBreakInterval: Math.max(1, Math.min(10, newSettings.longBreakInterval || 4)), // Allow 1 session
+      focus: Math.max(0.01, Math.min(120, newSettings.focus || 25)),
+      shortBreak: Math.max(0.01, Math.min(30, newSettings.shortBreak || 5)),
+      longBreak: Math.max(0.01, Math.min(60, newSettings.longBreak || 15)),
+      longBreakInterval: Math.max(1, Math.min(10, newSettings.longBreakInterval || 4)),
       autoStart: newSettings.autoStart ?? true,
       soundEnabled: newSettings.soundEnabled ?? true
     }
@@ -242,6 +260,7 @@ export const useTimerStore = defineStore('timer', () => {
     pauseSession,
     resetSession,
     getElapsedFocusTime,
+    shouldDebounceCompletion,
     fetchSettings,
     saveSettings,
     syncLocalSettingsToSupabase,

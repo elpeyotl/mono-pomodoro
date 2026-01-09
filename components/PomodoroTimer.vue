@@ -343,10 +343,11 @@ watch(savedSettings, (newSettings) => {
 }, { immediate: true, deep: true })
 
 // Computed timer durations based on saved settings (in seconds)
+// Use Math.round to avoid floating-point precision issues (e.g., 0.167 * 60 = 10.02)
 const timerDurations = computed<Record<TimerMode, number>>(() => ({
-  focus: savedSettings.value.focus * 60,
-  shortBreak: savedSettings.value.shortBreak * 60,
-  longBreak: savedSettings.value.longBreak * 60
+  focus: Math.round(savedSettings.value.focus * 60),
+  shortBreak: Math.round(savedSettings.value.shortBreak * 60),
+  longBreak: Math.round(savedSettings.value.longBreak * 60)
 }))
 
 const currentMode = ref<TimerMode>('focus')
@@ -484,6 +485,8 @@ function resetTimer() {
 }
 
 function setMode(mode: TimerMode, autoStart = false) {
+  console.log('[Timer] setMode called:', mode, 'autoStart:', autoStart)
+  
   // Save focus time when switching away from focus mode
   if (currentMode.value === 'focus' && mode !== 'focus' && activeTask.value) {
     const totalSeconds = timerStore.getElapsedFocusTime()
@@ -492,12 +495,16 @@ function setMode(mode: TimerMode, autoStart = false) {
     }
   }
   
+  console.log('[Timer] Setting currentMode.value to:', mode)
   currentMode.value = mode
   isRunning.value = false
   timeRemaining.value = timerDurations.value[mode]
   timerStore.resetSession()
   
+  console.log('[Timer] currentMode.value is now:', currentMode.value)
+  
   if (autoStart && savedSettings.value.autoStart) {
+    console.log('[Timer] Auto-starting in 1 second...')
     // Small delay before auto-starting
     setTimeout(() => {
       isRunning.value = true
@@ -514,19 +521,25 @@ function skipTimer() {
 }
 
 function switchToNextMode(completed: boolean) {
+  console.log('[Timer] switchToNextMode called, completed:', completed, 'currentMode:', currentMode.value)
+  
   if (currentMode.value === 'focus') {
     // Always increment pomodoro count when leaving focus mode (skip or complete)
     pomodoroCount.value++
+    console.log('[Timer] pomodoroCount:', pomodoroCount.value, 'longBreakInterval:', savedSettings.value.longBreakInterval)
     
     // Check if it's time for a long break
     if (pomodoroCount.value >= savedSettings.value.longBreakInterval) {
       pomodoroCount.value = 0 // Reset counter
+      console.log('[Timer] Switching to longBreak')
       setMode('longBreak', true)
     } else {
+      console.log('[Timer] Switching to shortBreak')
       setMode('shortBreak', true)
     }
   } else {
     // After any break, go back to focus
+    console.log('[Timer] Switching to focus')
     setMode('focus', true)
   }
 }
@@ -559,15 +572,26 @@ async function resetToDefaults() {
   settingsForm.value = { ...DEFAULT_SETTINGS }
 }
 
-// Timer completion handler
+// Timer completion handler - with global debounce from timerStore
 async function onTimerComplete() {
+  // Use global debounce from timerStore to prevent double execution from SSR hydration
+  if (timerStore.shouldDebounceCompletion()) {
+    console.log('[Timer] onTimerComplete debounced by timerStore')
+    return
+  }
+  
+  console.log('[Timer] onTimerComplete executing, currentMode:', currentMode.value)
+  
   isRunning.value = false
   
   // Play notification sound
   playNotificationSound()
   
+  // Capture current mode before any async operations
+  const completedMode = currentMode.value
+  
   // Wenn Focus-Modus abgeschlossen und ein aktiver Task existiert
-  if (currentMode.value === 'focus' && activeTask.value) {
+  if (completedMode === 'focus' && activeTask.value) {
     // Pomodoro-Zähler erhöhen
     await taskStore.incrementPomodoro(activeTask.value.id)
     
@@ -585,7 +609,7 @@ async function onTimerComplete() {
   
   // Browser-Benachrichtigung (falls erlaubt)
   if ('Notification' in window && Notification.permission === 'granted') {
-    const message = currentMode.value === 'focus'
+    const message = completedMode === 'focus'
       ? 'Focus session complete! Time for a break.'
       : 'Break is over! Ready to focus?'
     new Notification('Pomodoro Timer', { body: message })
@@ -598,8 +622,12 @@ async function onTimerComplete() {
 // Timer interval with absolute end time for accuracy in background tabs
 let intervalId: ReturnType<typeof setInterval> | null = null
 let timerEndTime: number | null = null // Absolute timestamp when timer should end
+let isCompletionInProgress = false // Guard to prevent multiple onTimerComplete calls
 
 function startTimerInterval() {
+  // Reset completion guard when starting
+  isCompletionInProgress = false
+  
   // Calculate absolute end time
   timerEndTime = Date.now() + (timeRemaining.value * 1000)
   
@@ -608,8 +636,15 @@ function startTimerInterval() {
       const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
       
       if (remaining <= 0) {
+        // Stop interval IMMEDIATELY before calling onTimerComplete
+        stopTimerInterval()
         timeRemaining.value = 0
-        onTimerComplete()
+        
+        // Guard against multiple calls
+        if (!isCompletionInProgress) {
+          isCompletionInProgress = true
+          onTimerComplete()
+        }
       } else {
         timeRemaining.value = remaining
       }
@@ -639,8 +674,14 @@ function handleVisibilityChange() {
     const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
     
     if (remaining <= 0) {
+      // Stop interval and use guard
+      stopTimerInterval()
       timeRemaining.value = 0
-      onTimerComplete()
+      
+      if (!isCompletionInProgress) {
+        isCompletionInProgress = true
+        onTimerComplete()
+      }
     } else {
       timeRemaining.value = remaining
     }
@@ -656,7 +697,9 @@ onUnmounted(() => {
 })
 
 // Sync timer state to timerStore for background animation and mobile tab display
-watch(currentMode, (mode) => {
+watch(currentMode, (mode, oldMode) => {
+  console.log('[Timer] currentMode watcher triggered:', oldMode, '->', mode)
+  console.log('[Timer] Calling timerStore.setMode(', mode, ')')
   timerStore.setMode(mode)
 }, { immediate: true })
 
