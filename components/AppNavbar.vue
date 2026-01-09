@@ -9,7 +9,10 @@
             <div class="absolute inset-0 rounded-full bg-primary-500/20 group-hover:bg-primary-500/30 transition-colors" />
             <div class="absolute inset-1.5 rounded-full bg-primary-500 group-hover:scale-110 transition-transform" />
           </div>
-          <span class="text-xl font-bold tracking-tight">mono</span>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold tracking-tight">mono</span>
+            <span class="text-[10px] text-gray-500 font-mono hidden sm:inline">v{{ appVersion }}</span>
+          </div>
         </NuxtLink>
 
         <!-- Auth Section -->
@@ -93,6 +96,9 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+
+// App Version
+const appVersion = '1.8.0'
 
 // Auth Modal
 const showAuthModal = ref(false)

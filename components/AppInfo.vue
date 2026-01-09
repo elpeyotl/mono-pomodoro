@@ -192,8 +192,8 @@
 <script setup lang="ts">
 const isOpen = ref(false)
 
-// App Version
-const appVersion = '1.7.0'
+// App Version - also exported for use in other components
+const appVersion = '1.8.0'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,21 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.8.0',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'feature', text: 'Email/Password authentication with password reset' },
+      { type: 'feature', text: 'Swipe hint for new mobile users' },
+      { type: 'feature', text: 'Vercel Analytics integration' },
+      { type: 'fix', text: 'Timer background color now changes correctly on mode switch' },
+      { type: 'fix', text: 'Timer works correctly in inactive browser tabs' },
+      { type: 'fix', text: 'Session count display fixed for single-session intervals' },
+      { type: 'improvement', text: 'Mobile: Sticky header with timer in footer' },
+      { type: 'improvement', text: 'Mobile: Better task navigation with index-based scrolling' },
+      { type: 'improvement', text: 'Mobile: Body scroll re-enabled for better UX' }
+    ]
+  },
   {
     version: '1.7.0',
     date: 'January 8, 2026',
