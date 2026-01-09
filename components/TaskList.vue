@@ -127,12 +127,14 @@
                     <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
                   </div>
                   
-                  <!-- Checkbox -->
-                  <UCheckbox
-                    :model-value="task.is_completed"
-                    @update:model-value="taskStore.toggleComplete(task.id)"
-                    color="primary"
-                  />
+                  <!-- Checkbox with Confetti -->
+                  <div :ref="(el) => setCheckboxRef(task.id, el as HTMLElement)">
+                    <UCheckbox
+                      :model-value="task.is_completed"
+                      @update:model-value="handleTaskComplete(task, $event)"
+                      color="primary"
+                    />
+                  </div>
                 
                   <!-- Task Content (clickable to expand) -->
                   <div
@@ -690,6 +692,7 @@ import draggable from 'vuedraggable'
 
 const taskStore = useTaskStore()
 const timerStore = useTimerStore()
+const { miniConfetti, celebrationConfetti } = useConfetti()
 
 // Modal State
 const isModalOpen = ref(false)
@@ -717,6 +720,61 @@ const newSubtaskTitle = ref('')
 
 // Local copy of pending tasks for drag & drop
 const pendingTasksLocal = ref<(Task | LocalTask)[]>([])
+
+// Confetti state
+const checkboxRefs = ref<Map<string, HTMLElement>>(new Map())
+
+// Set checkbox ref for confetti positioning
+function setCheckboxRef(taskId: string, el: HTMLElement | null) {
+  if (el) {
+    checkboxRefs.value.set(taskId, el)
+  } else {
+    checkboxRefs.value.delete(taskId)
+  }
+}
+
+// Handle task completion with confetti
+async function handleTaskComplete(task: Task | LocalTask, completed: boolean) {
+  if (completed) {
+    // Get the checkbox element for confetti positioning
+    const checkboxEl = checkboxRefs.value.get(task.id)
+    
+    // Trigger mini confetti at checkbox position
+    miniConfetti(checkboxEl)
+    
+    // Complete the task
+    await taskStore.toggleComplete(task.id)
+    
+    // Check if all tasks are completed (for celebration)
+    await nextTick()
+    checkForCelebration()
+  } else {
+    // Just uncomplete the task (no confetti)
+    await taskStore.toggleComplete(task.id)
+  }
+}
+
+// Check if all tasks are completed for big celebration
+function checkForCelebration() {
+  const activeFilter = taskStore.activeTagFilter
+  
+  if (activeFilter) {
+    // Check if all tasks with this tag are completed
+    const tasksWithTag = taskStore.tasks.filter(t => t.tags?.includes(activeFilter))
+    const allCompleted = tasksWithTag.length > 0 && tasksWithTag.every(t => t.is_completed)
+    
+    if (allCompleted) {
+      celebrationConfetti()
+    }
+  } else {
+    // Check if all tasks are completed
+    const allCompleted = taskStore.tasks.length > 0 && taskStore.tasks.every(t => t.is_completed)
+    
+    if (allCompleted) {
+      celebrationConfetti()
+    }
+  }
+}
 
 // Sync pendingTasksLocal with store
 watch(() => taskStore.pendingTasks, (newTasks) => {
@@ -993,3 +1051,4 @@ async function deleteSelectedTasks() {
   isDeleteMultipleModalOpen.value = false
 }
 </script>
+

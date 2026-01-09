@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version - also exported for use in other components
-const appVersion = '1.9.0'
+const appVersion = '1.10.0'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,15 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.10.0',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'feature', text: 'Gamification: Confetti animation when completing tasks 🎊' },
+      { type: 'feature', text: 'Big celebration confetti when all tasks of a tag are completed' },
+      { type: 'improvement', text: 'Visual feedback makes completing tasks more satisfying' }
+    ]
+  },
   {
     version: '1.9.0',
     date: 'January 9, 2026',
