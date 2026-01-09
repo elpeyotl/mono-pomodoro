@@ -2,6 +2,9 @@
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
+  
+  <!-- Toast notifications container -->
+  <UNotifications />
 </template>
 
 <style>

@@ -79,31 +79,42 @@ async function checkForUpdates() {
 }
 
 function showUpdateToast() {
-  toast.add({
-    id: 'pwa-update',
-    title: '🎉 New version available!',
-    description: 'Click to update to the latest version of Mono.',
-    icon: 'i-heroicons-arrow-path',
-    color: 'primary',
-    timeout: 0, // Don't auto-dismiss
-    actions: [
-      {
-        label: 'Update now',
-        click: handleUpdate
-      },
-      {
-        label: 'Later',
-        variant: 'ghost' as const,
-        click: () => {
-          toast.remove('pwa-update')
-          // Reset so it can show again later
-          setTimeout(() => {
-            hasShownUpdate.value = false
-          }, 60000) // Show again after 1 minute
+  console.log('showUpdateToast called, adding toast...')
+  
+  try {
+    toast.add({
+      id: 'pwa-update',
+      title: '🎉 New version available!',
+      description: 'Click to update to the latest version of Mono.',
+      icon: 'i-heroicons-arrow-path',
+      color: 'primary',
+      timeout: 0, // Don't auto-dismiss
+      actions: [
+        {
+          label: 'Update now',
+          click: handleUpdate
+        },
+        {
+          label: 'Later',
+          variant: 'ghost' as const,
+          click: () => {
+            toast.remove('pwa-update')
+            // Reset so it can show again later
+            setTimeout(() => {
+              hasShownUpdate.value = false
+            }, 60000) // Show again after 1 minute
+          }
         }
-      }
-    ]
-  })
+      ]
+    })
+    console.log('Toast added successfully')
+  } catch (error) {
+    console.error('Failed to add toast:', error)
+    // Fallback: use native confirm dialog
+    if (confirm('🎉 New version available! Click OK to update now.')) {
+      handleUpdate()
+    }
+  }
 }
 
 function handleUpdate() {

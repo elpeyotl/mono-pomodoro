@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version - also exported for use in other components
-const appVersion = '1.11.3'
+const appVersion = '1.11.4'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,14 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.11.4',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'fix', text: 'Added UNotifications component to app.vue - toasts now render correctly' },
+      { type: 'fix', text: 'PWA update toast should now be visible when new version is available' }
+    ]
+  },
   {
     version: '1.11.3',
     date: 'January 9, 2026',

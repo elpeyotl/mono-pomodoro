@@ -98,7 +98,7 @@ const supabase = useSupabaseClient()
 const user = useSupabaseUser()
 
 // App Version
-const appVersion = '1.11.3'
+const appVersion = '1.11.4'
 
 // Auth Modal
 const showAuthModal = ref(false)
