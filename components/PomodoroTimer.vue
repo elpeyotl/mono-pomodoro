@@ -79,8 +79,14 @@
         </svg>
         <!-- Timer Display -->
         <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-4xl font-mono font-bold">{{ formattedTime }}</span>
-          <span class="text-xs text-gray-400 mt-1">{{ modeLabel }}</span>
+          <span
+            class="text-4xl font-mono font-bold"
+            :class="{ 'text-orange-400': isOverflow }"
+          >{{ formattedTime }}</span>
+          <span
+            class="text-xs mt-1"
+            :class="isOverflow ? 'text-orange-400' : 'text-gray-400'"
+          >{{ modeLabel }}</span>
         </div>
       </div>
       
@@ -354,6 +360,10 @@ const currentMode = ref<TimerMode>('focus')
 const timeRemaining = ref(timerDurations.value.focus)
 const isRunning = ref(false)
 
+// Overflow mode: Timer counts into negative when autoStart is OFF
+const isOverflow = ref(false)
+const overflowSeconds = ref(0) // How many seconds past 0
+
 // Update timeRemaining when settings change (only if timer is not running)
 watch(timerDurations, (newDurations) => {
   if (!isRunning.value) {
@@ -367,6 +377,10 @@ const accumulatedFocusTime = computed(() => timerStore.accumulatedFocusTime)
 
 // Mode label for display
 const modeLabel = computed(() => {
+  // Show overflow indicator when in overflow mode
+  if (isOverflow.value) {
+    return 'Overtime - Click Skip when ready'
+  }
   switch (currentMode.value) {
     case 'focus': return 'Focus Time'
     case 'shortBreak': return 'Short Break'
@@ -376,6 +390,9 @@ const modeLabel = computed(() => {
 
 // Progress color based on mode - matching the wave background colors
 const progressColorClass = computed(() => {
+  // Orange color when in overflow mode
+  if (isOverflow.value) return 'text-orange-400'
+  
   switch (currentMode.value) {
     case 'focus': return 'text-primary-500'    // Turquoise/teal (original)
     case 'shortBreak': return 'text-blue-400'  // Bright blue
@@ -387,6 +404,8 @@ const progressColorClass = computed(() => {
 const circumference = 2 * Math.PI * 45 // radius = 45
 
 const progress = computed(() => {
+  // In overflow mode, progress stays at 0 (empty ring)
+  if (isOverflow.value) return 0
   const total = timerDurations.value[currentMode.value]
   return timeRemaining.value / total
 })
@@ -396,6 +415,12 @@ const strokeDashoffset = computed(() => {
 })
 
 const formattedTime = computed(() => {
+  // In overflow mode, show negative time
+  if (isOverflow.value) {
+    const minutes = Math.floor(overflowSeconds.value / 60)
+    const seconds = overflowSeconds.value % 60
+    return `-${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
   const minutes = Math.floor(timeRemaining.value / 60)
   const seconds = timeRemaining.value % 60
   return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
@@ -473,7 +498,11 @@ function toggleTimer() {
 function resetTimer() {
   // Save accumulated focus time before reset (if any)
   if (currentMode.value === 'focus' && activeTask.value) {
-    const totalSeconds = timerStore.getElapsedFocusTime()
+    // Include overflow time if in overflow mode
+    let totalSeconds = timerStore.getElapsedFocusTime()
+    if (isOverflow.value) {
+      totalSeconds += overflowSeconds.value
+    }
     if (totalSeconds > 0) {
       taskStore.addFocusTime(activeTask.value.id, totalSeconds)
     }
@@ -482,6 +511,10 @@ function resetTimer() {
   isRunning.value = false
   timeRemaining.value = timerDurations.value[currentMode.value]
   timerStore.resetSession()
+  
+  // Reset overflow state
+  isOverflow.value = false
+  overflowSeconds.value = 0
 }
 
 function setMode(mode: TimerMode, autoStart = false) {
@@ -489,7 +522,11 @@ function setMode(mode: TimerMode, autoStart = false) {
   
   // Save focus time when switching away from focus mode
   if (currentMode.value === 'focus' && mode !== 'focus' && activeTask.value) {
-    const totalSeconds = timerStore.getElapsedFocusTime()
+    // Include overflow time if in overflow mode
+    let totalSeconds = timerStore.getElapsedFocusTime()
+    if (isOverflow.value) {
+      totalSeconds += overflowSeconds.value
+    }
     if (totalSeconds > 0) {
       taskStore.addFocusTime(activeTask.value.id, totalSeconds)
     }
@@ -500,6 +537,10 @@ function setMode(mode: TimerMode, autoStart = false) {
   isRunning.value = false
   timeRemaining.value = timerDurations.value[mode]
   timerStore.resetSession()
+  
+  // Reset overflow state
+  isOverflow.value = false
+  overflowSeconds.value = 0
   
   console.log('[Timer] currentMode.value is now:', currentMode.value)
   
@@ -516,12 +557,23 @@ function setMode(mode: TimerMode, autoStart = false) {
 }
 
 function skipTimer() {
+  // If in overflow mode during focus, save the overflow time and increment pomodoro
+  if (isOverflow.value && currentMode.value === 'focus' && activeTask.value) {
+    // Increment pomodoro count
+    taskStore.incrementPomodoro(activeTask.value.id)
+    
+    // Save focus time including overflow
+    const totalSeconds = timerDurations.value.focus + overflowSeconds.value
+    taskStore.addFocusTime(activeTask.value.id, totalSeconds)
+    timerStore.resetSession()
+  }
+  
   // Skip to next mode without completing current timer
   switchToNextMode(false)
 }
 
 function switchToNextMode(completed: boolean) {
-  console.log('[Timer] switchToNextMode called, completed:', completed, 'currentMode:', currentMode.value)
+  console.log('[Timer] switchToNextMode called, completed:', completed, 'currentMode:', currentMode.value, 'isOverflow:', isOverflow.value)
   
   if (currentMode.value === 'focus') {
     // Always increment pomodoro count when leaving focus mode (skip or complete)
@@ -623,27 +675,80 @@ async function onTimerComplete() {
 let intervalId: ReturnType<typeof setInterval> | null = null
 let timerEndTime: number | null = null // Absolute timestamp when timer should end
 let isCompletionInProgress = false // Guard to prevent multiple onTimerComplete calls
+let hasPlayedCompletionSound = false // Track if we've played the sound for this session
+let isHydrated = false // Guard to prevent SSR timer execution
 
 function startTimerInterval() {
+  // CRITICAL: Don't start timer during SSR - wait for client hydration
+  if (import.meta.server) {
+    console.log('[Timer] Skipping startTimerInterval on server')
+    return
+  }
+  
+  // Also check if we're hydrated (onMounted has been called)
+  if (!isHydrated) {
+    console.log('[Timer] Skipping startTimerInterval - not yet hydrated')
+    return
+  }
+  
   // Reset completion guard when starting
   isCompletionInProgress = false
+  hasPlayedCompletionSound = false
+  
+  // If we're in overflow mode, continue counting up
+  if (isOverflow.value) {
+    intervalId = setInterval(() => {
+      overflowSeconds.value++
+    }, 1000)
+    return
+  }
   
   // Calculate absolute end time
   timerEndTime = Date.now() + (timeRemaining.value * 1000)
+  console.log('[Timer] Started with timerEndTime:', timerEndTime, 'timeRemaining:', timeRemaining.value)
   
   intervalId = setInterval(() => {
     if (timerEndTime) {
       const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
       
       if (remaining <= 0) {
-        // Stop interval IMMEDIATELY before calling onTimerComplete
-        stopTimerInterval()
-        timeRemaining.value = 0
-        
-        // Guard against multiple calls
-        if (!isCompletionInProgress) {
-          isCompletionInProgress = true
-          onTimerComplete()
+        // Check if autoStart is OFF - enter overflow mode instead of completing
+        if (!savedSettings.value.autoStart) {
+          // Play sound once when entering overflow
+          if (!hasPlayedCompletionSound) {
+            hasPlayedCompletionSound = true
+            console.log('[Timer] Playing completion sound (overflow mode)')
+            playNotificationSound()
+            
+            // Show browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const message = currentMode.value === 'focus'
+                ? 'Timer complete! Take a break when ready.'
+                : 'Break timer complete! Start focusing when ready.'
+              new Notification('Pomodoro Timer', { body: message })
+            }
+          }
+          
+          // Enter overflow mode
+          timeRemaining.value = 0
+          isOverflow.value = true
+          overflowSeconds.value = Math.abs(remaining)
+          
+          // Switch to overflow counting interval
+          stopTimerInterval()
+          intervalId = setInterval(() => {
+            overflowSeconds.value++
+          }, 1000)
+        } else {
+          // AutoStart is ON - complete normally
+          stopTimerInterval()
+          timeRemaining.value = 0
+          
+          // Guard against multiple calls
+          if (!isCompletionInProgress) {
+            isCompletionInProgress = true
+            onTimerComplete()
+          }
         }
       } else {
         timeRemaining.value = remaining
@@ -661,8 +766,19 @@ function stopTimerInterval() {
 }
 
 watch(isRunning, (running) => {
+  // Don't start timer during SSR or before hydration
+  if (import.meta.server) {
+    console.log('[Timer] Skipping isRunning watch on server')
+    return
+  }
+  
   if (running) {
-    startTimerInterval()
+    // Only start if hydrated
+    if (isHydrated) {
+      startTimerInterval()
+    } else {
+      console.log('[Timer] isRunning=true but not hydrated yet, will start after hydration')
+    }
   } else {
     stopTimerInterval()
   }
@@ -670,25 +786,64 @@ watch(isRunning, (running) => {
 
 // Handle tab visibility changes - recalculate time when tab becomes visible
 function handleVisibilityChange() {
-  if (document.visibilityState === 'visible' && isRunning.value && timerEndTime) {
-    const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
+  if (document.visibilityState === 'visible' && isRunning.value) {
+    // If in overflow mode, just continue - no recalculation needed
+    if (isOverflow.value) {
+      return
+    }
     
-    if (remaining <= 0) {
-      // Stop interval and use guard
-      stopTimerInterval()
-      timeRemaining.value = 0
+    if (timerEndTime) {
+      const remaining = Math.ceil((timerEndTime - Date.now()) / 1000)
       
-      if (!isCompletionInProgress) {
-        isCompletionInProgress = true
-        onTimerComplete()
+      if (remaining <= 0) {
+        // Check if autoStart is OFF - enter overflow mode
+        if (!savedSettings.value.autoStart) {
+          // Play sound once when entering overflow
+          if (!hasPlayedCompletionSound) {
+            hasPlayedCompletionSound = true
+            playNotificationSound()
+            
+            // Show browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const message = currentMode.value === 'focus'
+                ? 'Timer complete! Take a break when ready.'
+                : 'Break timer complete! Start focusing when ready.'
+              new Notification('Pomodoro Timer', { body: message })
+            }
+          }
+          
+          // Enter overflow mode
+          timeRemaining.value = 0
+          isOverflow.value = true
+          overflowSeconds.value = Math.abs(remaining)
+          
+          // Switch to overflow counting interval
+          stopTimerInterval()
+          intervalId = setInterval(() => {
+            overflowSeconds.value++
+          }, 1000)
+        } else {
+          // AutoStart is ON - complete normally
+          stopTimerInterval()
+          timeRemaining.value = 0
+          
+          if (!isCompletionInProgress) {
+            isCompletionInProgress = true
+            onTimerComplete()
+          }
+        }
+      } else {
+        timeRemaining.value = remaining
       }
-    } else {
-      timeRemaining.value = remaining
     }
   }
 }
 
 onMounted(() => {
+  // Mark as hydrated - this prevents SSR timer execution
+  isHydrated = true
+  console.log('[Timer] Component hydrated, timer can now start')
+  
   document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 

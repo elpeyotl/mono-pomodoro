@@ -193,7 +193,7 @@
 const isOpen = ref(false)
 
 // App Version - also exported for use in other components
-const appVersion = '1.8.0'
+const appVersion = '1.9.0'
 
 // Tabs
 const tabs = [
@@ -258,6 +258,18 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.9.0',
+    date: 'January 9, 2026',
+    changes: [
+      { type: 'feature', text: 'Overtime mode: Timer counts into negative when Auto-Start is OFF' },
+      { type: 'feature', text: 'Finish your task at your own pace, then click Skip when ready' },
+      { type: 'improvement', text: 'Orange color indicator when in overtime mode' },
+      { type: 'improvement', text: 'Overtime is added to focus time tracking' },
+      { type: 'improvement', text: 'Auto-Start now defaults to OFF for more flexibility' },
+      { type: 'fix', text: 'Fixed SSR hydration issue causing double timer completion' }
+    ]
+  },
   {
     version: '1.8.0',
     date: 'January 9, 2026',

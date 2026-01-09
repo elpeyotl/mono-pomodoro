@@ -13,12 +13,13 @@ export interface TimerSettings {
 }
 
 // Default settings
+// Note: autoStart is OFF by default to enable Overtime mode for flexible work
 export const DEFAULT_SETTINGS: TimerSettings = {
   focus: 25,           // 25 min
   shortBreak: 5,       // 5 min
   longBreak: 15,       // 15 min
   longBreakInterval: 4, // 4 sessions
-  autoStart: true,
+  autoStart: false,    // OFF = Overtime mode enabled (timer counts into negative)
   soundEnabled: true
 }
 
