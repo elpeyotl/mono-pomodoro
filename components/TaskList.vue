@@ -142,7 +142,7 @@
                     @click="toggleExpand(task.id)"
                   >
                     <div class="flex items-center gap-2">
-                      <p class="text-gray-100 truncate font-medium">{{ task.title }}</p>
+                      <p class="text-gray-100 font-medium sm:truncate">{{ task.title }}</p>
                       <!-- Expand Icon (only if subtasks exist) -->
                       <UIcon
                         v-if="task.subtasks.length > 0"
@@ -384,7 +384,7 @@
               
               <!-- Task Content -->
               <div class="flex-1 min-w-0">
-                <p class="text-gray-500 line-through truncate">{{ task.title }}</p>
+                <p class="text-gray-500 line-through sm:truncate">{{ task.title }}</p>
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-gray-600 flex items-center gap-1">
                     <UIcon name="i-heroicons-fire" class="w-3 h-3" />
