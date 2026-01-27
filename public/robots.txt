@@ -1,0 +1,6 @@
+# robots.txt for monopomodoro.app
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://monopomodoro.app/sitemap.xml

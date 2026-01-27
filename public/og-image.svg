@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14b8a6"/>
+      <stop offset="100%" style="stop-color:#0d9488"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Decorative waves -->
+  <path d="M0 500 Q300 450 600 480 T1200 460 V630 H0 Z" fill="#14b8a6" opacity="0.1"/>
+  <path d="M0 520 Q300 480 600 510 T1200 490 V630 H0 Z" fill="#14b8a6" opacity="0.15"/>
+  <path d="M0 550 Q300 520 600 540 T1200 520 V630 H0 Z" fill="#14b8a6" opacity="0.2"/>
+
+  <!-- Logo circle -->
+  <circle cx="600" cy="240" r="80" fill="url(#logoGrad)"/>
+
+  <!-- M letter -->
+  <path d="M560 280V200l20 30 20-30v80" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Timer arc -->
+  <path d="M620 200a32 32 0 1 1 0 64" stroke="white" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.9"/>
+  <circle cx="620" cy="200" r="6" fill="white"/>
+
+  <!-- Title -->
+  <text x="600" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="bold" fill="white">Mono Pomodoro</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="440" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" fill="#94a3b8">Focus on one task at a time</text>
+
+  <!-- Features -->
+  <text x="600" y="520" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#14b8a6">Pomodoro Timer  •  Task Management  •  Works Offline</text>
+</svg>

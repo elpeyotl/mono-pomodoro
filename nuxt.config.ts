@@ -104,22 +104,42 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Mono - Pomodoro Focus App',
+      htmlAttrs: {
+        lang: 'en'
+      },
       meta: [
-        { name: 'description', content: 'Minimalist Pomodoro & Task Focus App with beautiful wave animations' },
+        { name: 'description', content: 'Free minimalist Pomodoro timer with task management. Focus on one task at a time with beautiful wave animations. Works offline as a PWA.' },
         { name: 'theme-color', content: '#0f172a' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'Mono' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
+        // Open Graph
         { property: 'og:title', content: 'Mono - Pomodoro Focus App' },
-        { property: 'og:description', content: 'Minimalist Pomodoro & Task Focus App with beautiful wave animations' },
-        { property: 'og:type', content: 'website' }
+        { property: 'og:description', content: 'Free minimalist Pomodoro timer with task management. Focus on one task at a time.' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: 'https://monopomodoro.app' },
+        { property: 'og:image', content: 'https://monopomodoro.app/og-image.png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:site_name', content: 'Mono Pomodoro' },
+        { property: 'og:locale', content: 'en_US' },
+        // Twitter Card
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Mono - Pomodoro Focus App' },
+        { name: 'twitter:description', content: 'Free minimalist Pomodoro timer with task management. Focus on one task at a time.' },
+        { name: 'twitter:image', content: 'https://monopomodoro.app/og-image.png' },
+        // Additional SEO
+        { name: 'author', content: 'Mono Pomodoro' },
+        { name: 'robots', content: 'index, follow' },
+        { name: 'keywords', content: 'pomodoro, timer, focus, productivity, task management, pwa, offline' }
       ],
       link: [
         { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
         { rel: 'shortcut icon', href: '/favicon.svg' },
         { rel: 'apple-touch-icon', href: '/pwa-192x192.png' },
-        { rel: 'manifest', href: '/manifest.webmanifest' }
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'canonical', href: 'https://monopomodoro.app' }
       ]
     }
   },
@@ -132,7 +152,7 @@ export default defineNuxtConfig({
   // Runtime Config für Environment Variables
   runtimeConfig: {
     public: {
-      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'https://monopomodoro.app',
       appVersion: pkg.version
     }
   },
