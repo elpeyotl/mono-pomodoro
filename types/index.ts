@@ -32,6 +32,8 @@ export interface Task {
   id: string
   user_id: string | null
   title: string
+  description: string | null  // Optional notes/description
+  due_date: string | null     // Optional due date (YYYY-MM-DD)
   subtasks: Subtask[]  // Checkliste mit Subtasks
   tags: string[]       // Array von Tag-IDs
   is_completed: boolean
@@ -45,6 +47,39 @@ export interface Task {
 
 export interface LocalTask extends Omit<Task, 'user_id'> {
   // Lokale Tasks haben keine user_id
+}
+
+// Focus Session for statistics tracking
+export interface FocusSession {
+  id: string
+  user_id: string | null
+  task_id: string | null
+  duration_seconds: number
+  started_at: string
+  ended_at: string
+  completed_pomodoro: boolean
+  created_at: string
+}
+
+export interface LocalFocusSession extends Omit<FocusSession, 'user_id'> {
+  // Local sessions for guest mode
+}
+
+// Statistics aggregation types
+export interface DailyStats {
+  date: string                // YYYY-MM-DD
+  total_focus_time: number    // seconds
+  completed_pomodoros: number
+  sessions_count: number
+}
+
+export interface WeeklyStats {
+  week_start: string          // YYYY-MM-DD (Monday)
+  week_end: string            // YYYY-MM-DD (Sunday)
+  total_focus_time: number
+  completed_pomodoros: number
+  sessions_count: number
+  daily_breakdown: DailyStats[]
 }
 
 export type TimerMode = 'focus' | 'shortBreak' | 'longBreak'

@@ -179,6 +179,15 @@
                         <UIcon name="i-heroicons-check-circle" class="w-3 h-3 text-green-400" />
                         {{ getCompletedSubtasks(task) }}/{{ task.subtasks.length }}
                       </span>
+                      <!-- Due Date Badge -->
+                      <span
+                        v-if="task.due_date"
+                        class="text-xs flex items-center gap-1 px-2 py-0.5 rounded-md"
+                        :class="getDueDateClasses(task.due_date, task.is_completed)"
+                      >
+                        <UIcon name="i-heroicons-calendar" class="w-3 h-3" />
+                        {{ formatDueDate(task.due_date) }}
+                      </span>
                       <!-- Active Badge -->
                       <span
                         v-if="task.is_active"
@@ -385,7 +394,7 @@
               <!-- Task Content -->
               <div class="flex-1 min-w-0">
                 <p class="text-gray-500 line-through sm:truncate">{{ task.title }}</p>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="text-xs text-gray-600 flex items-center gap-1">
                     <UIcon name="i-heroicons-fire" class="w-3 h-3" />
                     {{ task.pomodoro_count }} pomodoros
@@ -393,6 +402,14 @@
                   <span v-if="task.total_focus_time > 0" class="text-xs text-gray-600 flex items-center gap-1">
                     <UIcon name="i-heroicons-clock" class="w-3 h-3" />
                     {{ formatFocusTime(task.total_focus_time) }}
+                  </span>
+                  <span
+                    v-if="task.due_date"
+                    class="text-xs flex items-center gap-1 px-2 py-0.5 rounded-md"
+                    :class="getDueDateClasses(task.due_date, task.is_completed)"
+                  >
+                    <UIcon name="i-heroicons-calendar" class="w-3 h-3" />
+                    {{ formatDueDate(task.due_date) }}
                   </span>
                 </div>
               </div>
@@ -462,8 +479,8 @@
                 :key="tag.id"
                 type="button"
                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all"
-                :class="selectedTags.includes(tag.id) 
-                  ? 'ring-2 ring-offset-2 ring-offset-gray-900' 
+                :class="selectedTags.includes(tag.id)
+                  ? 'ring-2 ring-offset-2 ring-offset-gray-900'
                   : 'opacity-60 hover:opacity-100'"
                 :style="getTagButtonStyle(tag, selectedTags.includes(tag.id))"
                 @click="toggleTagSelection(tag.id)"
@@ -474,6 +491,55 @@
                 />
                 {{ tag.name }}
               </button>
+            </div>
+          </UFormGroup>
+
+          <!-- Description -->
+          <UFormGroup label="Description" :ui="{ label: { base: 'text-gray-300' } }">
+            <UTextarea
+              v-model="taskDescription"
+              placeholder="Add notes or details about this task..."
+              :rows="3"
+              color="gray"
+              variant="outline"
+              :ui="{
+                base: 'bg-gray-800 text-gray-100',
+                placeholder: 'placeholder-gray-500',
+                color: {
+                  gray: {
+                    outline: 'bg-gray-800 text-gray-100 ring-gray-700 focus:ring-primary-500'
+                  }
+                }
+              }"
+            />
+          </UFormGroup>
+
+          <!-- Due Date -->
+          <UFormGroup label="Due Date" :ui="{ label: { base: 'text-gray-300' } }">
+            <div class="flex items-center gap-2">
+              <UInput
+                v-model="taskDueDate"
+                type="date"
+                color="gray"
+                variant="outline"
+                class="flex-1"
+                :ui="{
+                  base: 'bg-gray-800 text-gray-100',
+                  color: {
+                    gray: {
+                      outline: 'bg-gray-800 text-gray-100 ring-gray-700 focus:ring-primary-500'
+                    }
+                  }
+                }"
+              />
+              <UButton
+                v-if="taskDueDate"
+                icon="i-heroicons-x-mark"
+                size="sm"
+                color="gray"
+                variant="ghost"
+                @click="taskDueDate = ''"
+              />
             </div>
           </UFormGroup>
         </form>
@@ -700,6 +766,8 @@ const isDeleteModalOpen = ref(false)
 const isDeleteMultipleModalOpen = ref(false)
 const isTagManagerOpen = ref(false)
 const taskTitle = ref('')
+const taskDescription = ref('')
+const taskDueDate = ref('')
 const selectedTags = ref<string[]>([])
 const editingTask = ref<Task | LocalTask | null>(null)
 const taskToDelete = ref<Task | LocalTask | null>(null)
@@ -810,6 +878,41 @@ function getTaskCountForTag(tagId: string): number {
 function getTagName(tagId: string): string {
   const tag = taskStore.getTagById(tagId)
   return tag?.name || 'Unknown'
+}
+
+// Format due date for display
+function formatDueDate(dueDate: string): string {
+  const date = new Date(dueDate + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff === -1) return 'Yesterday'
+  if (diff < -1) return `${Math.abs(diff)}d overdue`
+  if (diff <= 7) return `In ${diff}d`
+
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// Get due date styling classes
+function getDueDateClasses(dueDate: string, isCompleted: boolean): string {
+  if (isCompleted) return 'bg-gray-700/50 text-gray-500'
+
+  const today = new Date().toISOString().split('T')[0]
+
+  if (dueDate < today) {
+    return 'bg-red-500/20 text-red-400 font-medium'  // Overdue
+  }
+  if (dueDate === today) {
+    return 'bg-primary-500/20 text-primary-400 font-medium'  // Due today
+  }
+  return 'bg-gray-700/50 text-gray-400'  // Future
 }
 
 // Get tag text color (for contrast)
@@ -924,6 +1027,8 @@ async function addSubtaskToTask(taskId: string) {
 function openAddModal() {
   editingTask.value = null
   taskTitle.value = ''
+  taskDescription.value = ''
+  taskDueDate.value = ''
   // Pre-select the active tag filter if one is set
   selectedTags.value = taskStore.activeTagFilter
     ? [taskStore.activeTagFilter]
@@ -935,6 +1040,8 @@ function openAddModal() {
 function openEditModal(task: Task | LocalTask) {
   editingTask.value = task
   taskTitle.value = task.title
+  taskDescription.value = task.description || ''
+  taskDueDate.value = task.due_date || ''
   selectedTags.value = [...(task.tags || [])]
   isModalOpen.value = true
 }
@@ -944,6 +1051,8 @@ function closeModal() {
   isModalOpen.value = false
   editingTask.value = null
   taskTitle.value = ''
+  taskDescription.value = ''
+  taskDueDate.value = ''
   selectedTags.value = []
 }
 
@@ -954,10 +1063,17 @@ async function saveTask() {
   if (editingTask.value) {
     await taskStore.updateTask(editingTask.value.id, {
       title: taskTitle.value.trim(),
+      description: taskDescription.value.trim() || null,
+      due_date: taskDueDate.value || null,
       tags: selectedTags.value
     })
   } else {
-    await taskStore.addTask(taskTitle.value.trim(), selectedTags.value)
+    await taskStore.addTask(
+      taskTitle.value.trim(),
+      selectedTags.value,
+      taskDescription.value.trim() || null,
+      taskDueDate.value || null
+    )
   }
 
   closeModal()

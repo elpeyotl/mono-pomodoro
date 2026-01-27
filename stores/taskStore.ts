@@ -78,6 +78,25 @@ export const useTaskStore = defineStore('tasks', () => {
     return filteredTasks.value.filter(task => task.is_completed)
   })
 
+  // Computed: Tasks with overdue due dates
+  const overdueTasks = computed(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return tasks.value.filter(task =>
+      !task.is_completed &&
+      task.due_date &&
+      task.due_date < today
+    )
+  })
+
+  // Computed: Tasks due today
+  const tasksDueToday = computed(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return tasks.value.filter(task =>
+      !task.is_completed &&
+      task.due_date === today
+    )
+  })
+
   // Tag-Filter setzen
   function setTagFilter(tagId: string | null): void {
     activeTagFilter.value = tagId
@@ -273,13 +292,20 @@ export const useTaskStore = defineStore('tasks', () => {
     return minOrder - 1
   }
 
-  // Task erstellen (mit optionalen Tags)
-  async function addTask(title: string, tags: string[] = []): Promise<void> {
+  // Task erstellen (mit optionalen Tags, description, due_date)
+  async function addTask(
+    title: string,
+    tags: string[] = [],
+    description: string | null = null,
+    due_date: string | null = null
+  ): Promise<void> {
     if (!title.trim()) return
 
     const newTask: LocalTask = {
       id: generateId(),
       title: title.trim(),
+      description: description?.trim() || null,
+      due_date: due_date || null,
       subtasks: [],
       tags: tags,
       is_completed: false,
@@ -801,6 +827,8 @@ export const useTaskStore = defineStore('tasks', () => {
     activeTask,
     pendingTasks,
     completedTasks,
+    overdueTasks,
+    tasksDueToday,
     isLoading,
     error,
     hasLocalTasks,

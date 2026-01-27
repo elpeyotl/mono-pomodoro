@@ -13,16 +13,21 @@
       </p>
     </div>
 
-    <!-- Desktop Layout: Side by Side (only on large screens >= 1024px) -->
-    <div class="hidden lg:grid lg:grid-cols-2 gap-8 items-start">
+    <!-- Desktop Layout: Three Columns (only on large screens >= 1024px) -->
+    <div class="hidden lg:grid lg:grid-cols-3 gap-6 items-start">
       <!-- Timer - Left Side -->
       <div class="lg:sticky lg:top-8">
         <PomodoroTimer @navigate-to-task="scrollToTaskList" />
       </div>
 
-      <!-- Task List - Right Side -->
+      <!-- Task List - Center -->
       <div>
         <TaskList />
+      </div>
+
+      <!-- Statistics - Right Side -->
+      <div class="lg:sticky lg:top-8">
+        <StatisticsView />
       </div>
     </div>
 
@@ -79,6 +84,15 @@
             <TaskList />
           </div>
         </div>
+
+        <!-- Statistics Card -->
+        <div
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
+        >
+          <div class="pt-2 pb-20">
+            <StatisticsView />
+          </div>
+        </div>
       </div>
 
       <!-- Bottom Tab Bar -->
@@ -123,7 +137,8 @@ const taskStore = useTaskStore()
 // Tabs configuration
 const tabs = [
   { id: 'timer', label: 'Timer', icon: 'i-heroicons-clock' },
-  { id: 'tasks', label: 'Tasks', icon: 'i-heroicons-clipboard-document-list' }
+  { id: 'tasks', label: 'Tasks', icon: 'i-heroicons-clipboard-document-list' },
+  { id: 'stats', label: 'Stats', icon: 'i-heroicons-chart-bar' }
 ]
 
 // Active tab state

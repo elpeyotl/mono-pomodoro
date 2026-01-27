@@ -42,3 +42,4 @@ docs/
 # npm config files
 .npmrc
 .npmrc.local
+supabase/.temp/

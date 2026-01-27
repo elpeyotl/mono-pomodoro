@@ -318,6 +318,7 @@
 <script setup lang="ts">
 import { onKeyStroke } from '@vueuse/core'
 import { useTimerStore, type TimerMode, type TimerSettings, DEFAULT_SETTINGS } from '~/stores/timerStore'
+import { useStatisticsStore } from '~/stores/statisticsStore'
 
 // Emit for navigation to task
 const emit = defineEmits<{
@@ -326,6 +327,9 @@ const emit = defineEmits<{
 
 // Timer Store for background synchronization and settings
 const timerStore = useTimerStore()
+
+// Statistics Store for session logging
+const statisticsStore = useStatisticsStore()
 
 // Task Store für aktiven Task
 const taskStore = useTaskStore()
@@ -643,18 +647,33 @@ async function onTimerComplete() {
   const completedMode = currentMode.value
   
   // Wenn Focus-Modus abgeschlossen und ein aktiver Task existiert
-  if (completedMode === 'focus' && activeTask.value) {
-    // Pomodoro-Zähler erhöhen
-    await taskStore.incrementPomodoro(activeTask.value.id)
-    
-    // Focus-Zeit hinzufügen (gesamte Session-Dauer)
+  if (completedMode === 'focus') {
+    // Get session duration
     let totalSeconds = timerStore.getElapsedFocusTime()
     // Falls keine Zeit getrackt wurde, verwende die Timer-Dauer
     if (totalSeconds === 0) {
       totalSeconds = timerDurations.value.focus
     }
-    await taskStore.addFocusTime(activeTask.value.id, totalSeconds)
-    
+
+    // Log focus session for statistics
+    const endedAt = new Date()
+    const startedAt = new Date(endedAt.getTime() - (totalSeconds * 1000))
+    await statisticsStore.logFocusSession(
+      activeTask.value?.id || null,
+      totalSeconds,
+      startedAt,
+      endedAt,
+      true // completed pomodoro
+    )
+
+    if (activeTask.value) {
+      // Pomodoro-Zähler erhöhen
+      await taskStore.incrementPomodoro(activeTask.value.id)
+
+      // Focus-Zeit hinzufügen (gesamte Session-Dauer)
+      await taskStore.addFocusTime(activeTask.value.id, totalSeconds)
+    }
+
     // Reset tracking variables
     timerStore.resetSession()
   }
