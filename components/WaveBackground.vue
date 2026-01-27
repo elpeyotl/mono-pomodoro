@@ -197,30 +197,49 @@ function initThree() {
   window.addEventListener('resize', onResize)
 }
 
+// Track if animation is paused due to tab visibility
+let isPaused = false
+
 function animate() {
+  if (isPaused) return
+
   animationId = requestAnimationFrame(animate)
-  
+
   const material = mesh.material as THREE.ShaderMaterial
   const elapsed = (Date.now() - startTime) / 1000
-  
+
   material.uniforms.uTime.value = elapsed
-  
+
   // Smooth color transitions
   const targetMode = modeColors[props.mode]
   const lerpFactor = 0.02
-  
+
   currentColors.color1.lerp(targetMode.color1, lerpFactor)
   currentColors.color2.lerp(targetMode.color2, lerpFactor)
   currentColors.color3.lerp(targetMode.color3, lerpFactor)
   currentColors.speed += (targetMode.speed - currentColors.speed) * lerpFactor
-  
+
   const targetIntensity = props.isRunning ? 1.0 : 0.5
   currentColors.intensity += (targetIntensity - currentColors.intensity) * lerpFactor
-  
+
   material.uniforms.uSpeed.value = currentColors.speed
   material.uniforms.uIntensity.value = currentColors.intensity
-  
+
   renderer.render(scene, camera)
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    isPaused = true
+    if (animationId) {
+      cancelAnimationFrame(animationId)
+    }
+  } else {
+    isPaused = false
+    if (mesh) {
+      animate()
+    }
+  }
 }
 
 function onResize() {
@@ -250,10 +269,12 @@ onMounted(() => {
   // Only run on client side
   if (typeof window !== 'undefined') {
     initThree()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   }
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
   cleanup()
 })
 

@@ -96,9 +96,10 @@
 <script setup lang="ts">
 const supabase = useSupabaseClient()
 const user = useSupabaseUser()
+const config = useRuntimeConfig()
 
-// App Version
-const appVersion = '1.11.5'
+// App Version from package.json
+const appVersion = config.public.appVersion
 
 // Auth Modal
 const showAuthModal = ref(false)
