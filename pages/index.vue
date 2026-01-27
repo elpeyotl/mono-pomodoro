@@ -1,10 +1,48 @@
 <template>
-  <div class="h-full flex flex-col">
+  <div class="h-full lg:h-auto flex flex-col lg:block space-y-4 lg:space-y-8">
     <!-- Onboarding Flow for new users -->
     <OnboardingFlow />
 
-    <!-- Unified Tab Layout for all screen sizes -->
-    <div class="flex-1 flex flex-col min-h-0">
+    <!-- Desktop Layout: Two Columns + Stats Slideover (>= 1024px) -->
+    <div class="hidden lg:grid lg:grid-cols-2 gap-6 items-start">
+      <!-- Timer - Left Side -->
+      <div class="lg:sticky lg:top-8">
+        <PomodoroTimer @navigate-to-task="scrollToTaskList" />
+      </div>
+
+      <!-- Task List - Right Side -->
+      <div>
+        <TaskList />
+      </div>
+    </div>
+
+    <!-- Desktop Stats Toggle Button -->
+    <button
+      class="hidden lg:flex fixed bottom-6 right-6 z-40 items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-full shadow-lg transition-colors"
+      @click="showStats = true"
+    >
+      <UIcon name="i-heroicons-chart-bar" class="w-5 h-5 text-primary-400" />
+      <span class="text-sm text-gray-300">Stats</span>
+    </button>
+
+    <!-- Desktop Stats Slideover -->
+    <USlideover v-model="showStats" side="right" :ui="{ width: 'max-w-md' }">
+      <div class="p-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">Statistics</h2>
+          <UButton
+            icon="i-heroicons-x-mark"
+            color="gray"
+            variant="ghost"
+            @click="showStats = false"
+          />
+        </div>
+        <StatisticsView />
+      </div>
+    </USlideover>
+
+    <!-- Mobile/Tablet Layout: Swipeable Tabs (< 1024px) -->
+    <div class="lg:hidden flex-1 flex flex-col min-h-0">
       <!-- Tab Indicator Dots (above content) -->
       <div class="flex flex-col items-center gap-1 py-2 flex-shrink-0">
         <div class="flex justify-center gap-2">
@@ -32,15 +70,15 @@
       <!-- Swipeable Container -->
       <div
         ref="swipeContainer"
-        class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-16"
+        class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-16"
         style="scroll-behavior: smooth;"
         @scroll="onScroll"
       >
         <!-- Timer Card -->
         <div
-          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="py-4 flex justify-center">
+          <div class="py-2 flex justify-center">
             <div class="w-full max-w-md">
               <PomodoroTimer @navigate-to-task="scrollToTaskList" />
             </div>
@@ -49,18 +87,19 @@
 
         <!-- Tasks Card -->
         <div
-          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
+          ref="tasksContainer"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="pt-4 pb-20 max-w-2xl mx-auto">
+          <div class="pt-2 pb-20">
             <TaskList />
           </div>
         </div>
 
         <!-- Statistics Card -->
         <div
-          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
         >
-          <div class="pt-4 pb-20 max-w-2xl mx-auto">
+          <div class="pt-2 pb-20">
             <StatisticsView />
           </div>
         </div>
@@ -104,7 +143,10 @@
 const timerStore = useTimerStore()
 const taskStore = useTaskStore()
 
-// Tabs configuration
+// Desktop stats slideover
+const showStats = ref(false)
+
+// Tabs configuration (mobile)
 const tabs = [
   { id: 'timer', label: 'Timer', icon: 'i-heroicons-clock' },
   { id: 'tasks', label: 'Tasks', icon: 'i-heroicons-clipboard-document-list' },
@@ -114,6 +156,7 @@ const tabs = [
 // Active tab state
 const activeTab = ref(0)
 const swipeContainer = ref<HTMLElement | null>(null)
+const tasksContainer = ref<HTMLElement | null>(null)
 
 // Swipe hint - show until first swipe, stored in localStorage
 const swipeHintDismissed = useLocalStorage('mono-swipe-hint-dismissed', false)
@@ -148,6 +191,11 @@ function scrollToTab(index: number) {
     left: index * containerWidth,
     behavior: 'smooth'
   })
+}
+
+// Check if we're on mobile (< 1024px)
+function isMobileView(): boolean {
+  return window.innerWidth < 1024
 }
 
 // Navigate to task list (from timer "Working on" click)
@@ -185,25 +233,46 @@ function scrollToTaskList() {
 
 // Helper function to perform the actual scroll
 function performScrollToTask(taskId: string) {
-  if (!swipeContainer.value) return
+  // On mobile, switch to Tasks tab first, then scroll to task
+  if (isMobileView() && swipeContainer.value) {
+    // First, scroll horizontally to the Tasks tab
+    scrollToTab(1)
 
-  // First, scroll horizontally to the Tasks tab
-  scrollToTab(1)
+    // After horizontal scroll completes, find and highlight the task
+    setTimeout(() => {
+      const taskElement = document.getElementById(`task-${taskId}`)
+      if (taskElement) {
+        taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
 
-  // After horizontal scroll completes, find and highlight the task
-  setTimeout(() => {
-    const taskElement = document.getElementById(`task-${taskId}`)
-    if (taskElement) {
-      taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-      // Add highlight animation after scroll completes
-      setTimeout(() => {
-        taskElement.classList.add('highlight-pulse')
+        // Add highlight animation after scroll completes
         setTimeout(() => {
-          taskElement.classList.remove('highlight-pulse')
-        }, 1500)
-      }, 400)
-    }
+          taskElement.classList.add('highlight-pulse')
+          setTimeout(() => {
+            taskElement.classList.remove('highlight-pulse')
+          }, 1500)
+        }, 400)
+      }
+    }, 400)
+    return
+  }
+
+  // On desktop, scroll to the active task directly
+  scrollToActiveTask(taskId)
+}
+
+// Scroll to a specific task and highlight it (desktop version)
+function scrollToActiveTask(taskId: string) {
+  const taskElement = document.getElementById(`task-${taskId}`)
+  if (!taskElement) return
+
+  taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+  // Add highlight animation after scroll completes
+  setTimeout(() => {
+    taskElement.classList.add('highlight-pulse')
+    setTimeout(() => {
+      taskElement.classList.remove('highlight-pulse')
+    }, 1500)
   }, 400)
 }
 
@@ -215,7 +284,7 @@ function onScroll() {
   const newActiveTab = Math.round(scrollLeft / containerWidth)
   if (newActiveTab !== activeTab.value && newActiveTab >= 0 && newActiveTab < tabs.length) {
     activeTab.value = newActiveTab
-    
+
     // Dismiss swipe hint after first swipe
     if (showSwipeHint.value) {
       showSwipeHint.value = false
