@@ -1,38 +1,10 @@
 <template>
-  <div class="h-full lg:h-auto flex flex-col lg:block space-y-4 lg:space-y-8">
+  <div class="h-full flex flex-col">
     <!-- Onboarding Flow for new users -->
     <OnboardingFlow />
-    
-    <!-- Welcome Message - Hidden on mobile to maximize timer space -->
-    <div class="hidden lg:block text-center">
-      <h1 class="text-3xl font-bold mb-2">
-        {{ user ? `Welcome back, ${user.email?.split('@')[0]}` : 'One task at a time.' }}
-      </h1>
-      <p class="text-gray-400 text-base">
-        {{ user ? 'Your focus sessions are synced to the cloud.' : 'You are in guest mode. Login to sync your data.' }}
-      </p>
-    </div>
 
-    <!-- Desktop Layout: Three Columns (only on large screens >= 1024px) -->
-    <div class="hidden lg:grid lg:grid-cols-3 gap-6 items-start">
-      <!-- Timer - Left Side -->
-      <div class="lg:sticky lg:top-8">
-        <PomodoroTimer @navigate-to-task="scrollToTaskList" />
-      </div>
-
-      <!-- Task List - Center -->
-      <div>
-        <TaskList />
-      </div>
-
-      <!-- Statistics - Right Side -->
-      <div class="lg:sticky lg:top-8">
-        <StatisticsView />
-      </div>
-    </div>
-
-    <!-- Mobile/Tablet Layout: Swipeable Tabs (< 1024px) -->
-    <div class="lg:hidden flex-1 flex flex-col min-h-0">
+    <!-- Unified Tab Layout for all screen sizes -->
+    <div class="flex-1 flex flex-col min-h-0">
       <!-- Tab Indicator Dots (above content) -->
       <div class="flex flex-col items-center gap-1 py-2 flex-shrink-0">
         <div class="flex justify-center gap-2">
@@ -60,15 +32,15 @@
       <!-- Swipeable Container -->
       <div
         ref="swipeContainer"
-        class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 pb-16"
+        class="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-16"
         style="scroll-behavior: smooth;"
         @scroll="onScroll"
       >
         <!-- Timer Card -->
         <div
-          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
         >
-          <div class="py-2 flex justify-center">
+          <div class="py-4 flex justify-center">
             <div class="w-full max-w-md">
               <PomodoroTimer @navigate-to-task="scrollToTaskList" />
             </div>
@@ -77,19 +49,18 @@
 
         <!-- Tasks Card -->
         <div
-          ref="tasksContainer"
-          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
         >
-          <div class="pt-2 pb-20">
+          <div class="pt-4 pb-20 max-w-2xl mx-auto">
             <TaskList />
           </div>
         </div>
 
         <!-- Statistics Card -->
         <div
-          class="flex-shrink-0 w-full snap-center px-2 overflow-y-auto scrollbar-hide"
+          class="flex-shrink-0 w-full snap-center px-4 overflow-y-auto scrollbar-hide"
         >
-          <div class="pt-2 pb-20">
+          <div class="pt-4 pb-20 max-w-2xl mx-auto">
             <StatisticsView />
           </div>
         </div>
@@ -130,7 +101,6 @@
 </template>
 
 <script setup lang="ts">
-const user = useSupabaseUser()
 const timerStore = useTimerStore()
 const taskStore = useTaskStore()
 
@@ -144,7 +114,6 @@ const tabs = [
 // Active tab state
 const activeTab = ref(0)
 const swipeContainer = ref<HTMLElement | null>(null)
-const tasksContainer = ref<HTMLElement | null>(null)
 
 // Swipe hint - show until first swipe, stored in localStorage
 const swipeHintDismissed = useLocalStorage('mono-swipe-hint-dismissed', false)
@@ -181,24 +150,19 @@ function scrollToTab(index: number) {
   })
 }
 
-// Check if we're on mobile (< 1024px)
-function isMobileView(): boolean {
-  return window.innerWidth < 1024
-}
-
 // Navigate to task list (from timer "Working on" click)
 function scrollToTaskList() {
   const activeTask = taskStore.activeTask
   if (!activeTask) return
-  
+
   // Check if the active task is visible with the current tag filter
   const currentFilter = taskStore.activeTagFilter
   const taskTags = activeTask.tags || []
-  
+
   // If a filter is active and the task doesn't have that tag, switch filter
   if (currentFilter !== null) {
     const taskHasCurrentFilter = taskTags.includes(currentFilter)
-    
+
     if (!taskHasCurrentFilter) {
       // Switch to the first tag of the task, or "All" if no tags
       if (taskTags.length > 0) {
@@ -206,7 +170,7 @@ function scrollToTaskList() {
       } else {
         taskStore.setTagFilter(null) // Show all
       }
-      
+
       // Wait a tick for the filter to update before scrolling
       nextTick(() => {
         performScrollToTask(activeTask.id)
@@ -214,97 +178,32 @@ function scrollToTaskList() {
       return
     }
   }
-  
+
   // Task is visible with current filter, just scroll
   performScrollToTask(activeTask.id)
 }
 
 // Helper function to perform the actual scroll
 function performScrollToTask(taskId: string) {
-  // On mobile, switch to Tasks tab first, then scroll to task
-  if (isMobileView() && swipeContainer.value) {
-    // Get the filtered tasks to find the index
-    const filteredTasks = taskStore.filteredTasks
-    const taskIndex = filteredTasks.findIndex(t => t.id === taskId)
-    
-    if (taskIndex === -1) return
-    
-    // Find the first visible task element to get its height
-    // We look for any task element that has a height (works even when target is not visible)
-    const allTaskElements = document.querySelectorAll('[id^="task-"]')
-    let taskHeight = 0
-    
-    for (const el of allTaskElements) {
-      const height = (el as HTMLElement).offsetHeight
-      if (height > 0) {
-        taskHeight = height
-        break
-      }
-    }
-    
-    // If no task has height, use fallback
-    if (taskHeight === 0) {
-      taskHeight = 60 // Approximate height of a task item
-    }
-    
-    // Calculate scroll position (with some padding for header)
-    const headerOffset = 100 // Account for header and padding
-    const scrollTarget = (taskIndex * taskHeight) + headerOffset
-    
-    // First, scroll horizontally to the Tasks tab
-    scrollToTab(1)
-    
-    // After horizontal scroll completes, scroll vertically
-    setTimeout(() => {
-      window.scrollTo({
-        top: scrollTarget,
-        behavior: 'smooth'
-      })
-      
+  if (!swipeContainer.value) return
+
+  // First, scroll horizontally to the Tasks tab
+  scrollToTab(1)
+
+  // After horizontal scroll completes, find and highlight the task
+  setTimeout(() => {
+    const taskElement = document.getElementById(`task-${taskId}`)
+    if (taskElement) {
+      taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
       // Add highlight animation after scroll completes
       setTimeout(() => {
-        const taskElement = document.getElementById(`task-${taskId}`)
-        if (taskElement) {
-          taskElement.classList.add('highlight-pulse')
-          setTimeout(() => {
-            taskElement.classList.remove('highlight-pulse')
-          }, 1500)
-        }
+        taskElement.classList.add('highlight-pulse')
+        setTimeout(() => {
+          taskElement.classList.remove('highlight-pulse')
+        }, 1500)
       }, 400)
-    }, 500)
-    return
-  }
-  
-  // On desktop, scroll to the active task directly
-  scrollToActiveTask(taskId)
-}
-
-// Scroll to a specific task and highlight it (desktop version)
-function scrollToActiveTask(taskId: string) {
-  const taskElement = document.getElementById(`task-${taskId}`)
-  if (!taskElement) return
-  
-  // Get the task's position
-  const rect = taskElement.getBoundingClientRect()
-  const absoluteTop = rect.top + window.scrollY
-  const viewportHeight = window.innerHeight
-  const taskHeight = taskElement.offsetHeight
-  
-  // Calculate scroll position to center the task in the viewport
-  const scrollTarget = absoluteTop - (viewportHeight / 2) + (taskHeight / 2)
-  
-  // Use window.scrollTo for body scroll
-  window.scrollTo({
-    top: Math.max(0, scrollTarget),
-    behavior: 'smooth'
-  })
-  
-  // Add highlight animation after scroll completes
-  setTimeout(() => {
-    taskElement.classList.add('highlight-pulse')
-    setTimeout(() => {
-      taskElement.classList.remove('highlight-pulse')
-    }, 1500)
+    }
   }, 400)
 }
 
