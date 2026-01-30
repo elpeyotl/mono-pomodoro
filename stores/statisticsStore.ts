@@ -12,9 +12,12 @@ export const useStatisticsStore = defineStore('statistics', () => {
   const supabaseSessions = ref<FocusSession[]>([])
   const isLoading = ref(false)
 
-  // Computed: Active sessions source
+  // Computed: Active sessions source (merge both for logged-in users with fallback sessions)
   const sessions = computed(() => {
     if (user.value) {
+      if (localSessions.value.length > 0) {
+        return [...supabaseSessions.value, ...(localSessions.value as FocusSession[])]
+      }
       return supabaseSessions.value
     }
     return localSessions.value as FocusSession[]
@@ -56,9 +59,11 @@ export const useStatisticsStore = defineStore('statistics', () => {
             user_id: user.value.id
           })
         if (error) throw error
-        supabaseSessions.value.push({ ...session, user_id: user.value.id })
+        supabaseSessions.value = [...supabaseSessions.value, { ...session, user_id: user.value.id }]
       } catch (e) {
         console.error('Error logging focus session:', e)
+        // Fallback to localStorage if Supabase fails
+        localSessions.value.push(session)
       }
     } else {
       localSessions.value.push(session)

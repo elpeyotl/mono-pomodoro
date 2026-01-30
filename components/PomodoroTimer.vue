@@ -92,7 +92,17 @@
       
       <!-- Controls -->
       <div class="flex gap-4">
+        <!-- In overtime: show "Done" button instead of Start/Pause -->
         <UButton
+          v-if="isOverflow"
+          icon="i-heroicons-check"
+          size="lg"
+          color="primary"
+          label="Done"
+          @click="completeOvertime"
+        />
+        <UButton
+          v-else
           :icon="isRunning ? 'i-heroicons-pause' : 'i-heroicons-play'"
           size="lg"
           color="primary"
@@ -100,6 +110,7 @@
           @click="toggleTimer"
         />
         <UButton
+          v-if="!isOverflow"
           icon="i-heroicons-forward"
           size="lg"
           color="gray"
@@ -560,18 +571,59 @@ function setMode(mode: TimerMode, autoStart = false) {
   }
 }
 
-function skipTimer() {
-  // If in overflow mode during focus, save the overflow time and increment pomodoro
-  if (isOverflow.value && currentMode.value === 'focus' && activeTask.value) {
-    // Increment pomodoro count
-    taskStore.incrementPomodoro(activeTask.value.id)
-    
-    // Save focus time including overflow
+async function completeOvertime() {
+  if (!isOverflow.value) return
+
+  if (currentMode.value === 'focus') {
     const totalSeconds = timerDurations.value.focus + overflowSeconds.value
-    taskStore.addFocusTime(activeTask.value.id, totalSeconds)
+
+    // Log focus session for statistics
+    const endedAt = new Date()
+    const startedAt = new Date(endedAt.getTime() - (totalSeconds * 1000))
+    await statisticsStore.logFocusSession(
+      activeTask.value?.id || null,
+      totalSeconds,
+      startedAt,
+      endedAt,
+      true
+    )
+
+    if (activeTask.value) {
+      taskStore.incrementPomodoro(activeTask.value.id)
+      taskStore.addFocusTime(activeTask.value.id, totalSeconds)
+    }
     timerStore.resetSession()
   }
-  
+
+  // Move to next mode (break)
+  switchToNextMode(true)
+}
+
+async function skipTimer() {
+  // If in overflow mode during focus, this is a completed pomodoro
+  if (isOverflow.value && currentMode.value === 'focus') {
+    const totalSeconds = timerDurations.value.focus + overflowSeconds.value
+
+    // Log focus session for statistics
+    const endedAt = new Date()
+    const startedAt = new Date(endedAt.getTime() - (totalSeconds * 1000))
+    await statisticsStore.logFocusSession(
+      activeTask.value?.id || null,
+      totalSeconds,
+      startedAt,
+      endedAt,
+      true
+    )
+
+    if (activeTask.value) {
+      // Increment pomodoro count
+      taskStore.incrementPomodoro(activeTask.value.id)
+      // Save focus time including overflow
+      taskStore.addFocusTime(activeTask.value.id, totalSeconds)
+    }
+    timerStore.resetSession()
+  }
+
   // Skip to next mode without completing current timer
   switchToNextMode(false)
 }
