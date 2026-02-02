@@ -72,15 +72,22 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
   // ==================== Statistics Aggregation ====================
 
-  // Get daily stats for a date range
+  // Helper: Format a Date to local YYYY-MM-DD string
+  function toLocalDateStr(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  // Get daily stats for a date range (uses local dates consistently)
   function getDailyStats(startDate: string, endDate: string): DailyStats[] {
     const stats: Map<string, DailyStats> = new Map()
 
-    // Initialize all dates in range
-    let current = new Date(startDate + 'T00:00:00')
-    const end = new Date(endDate + 'T00:00:00')
+    // Initialize all dates in range using local time
+    const [startY, startM, startD] = startDate.split('-').map(Number)
+    const [endY, endM, endD] = endDate.split('-').map(Number)
+    let current = new Date(startY, startM - 1, startD)
+    const end = new Date(endY, endM - 1, endD)
     while (current <= end) {
-      const dateStr = current.toISOString().split('T')[0]
+      const dateStr = toLocalDateStr(current)
       stats.set(dateStr, {
         date: dateStr,
         total_focus_time: 0,
@@ -90,9 +97,9 @@ export const useStatisticsStore = defineStore('statistics', () => {
       current.setDate(current.getDate() + 1)
     }
 
-    // Aggregate sessions
+    // Aggregate sessions using local date of each session
     sessions.value.forEach(session => {
-      const sessionDate = session.started_at.split('T')[0]
+      const sessionDate = toLocalDateStr(new Date(session.started_at))
       if (sessionDate >= startDate && sessionDate <= endDate) {
         const dayStat = stats.get(sessionDate)
         if (dayStat) {
@@ -123,8 +130,8 @@ export const useStatisticsStore = defineStore('statistics', () => {
       const weekStart = new Date(weekEnd)
       weekStart.setDate(weekEnd.getDate() - 6)
 
-      const startStr = weekStart.toISOString().split('T')[0]
-      const endStr = weekEnd.toISOString().split('T')[0]
+      const startStr = toLocalDateStr(weekStart)
+      const endStr = toLocalDateStr(weekEnd)
       const dailyBreakdown = getDailyStats(startStr, endStr)
 
       weeks.push({
@@ -140,9 +147,9 @@ export const useStatisticsStore = defineStore('statistics', () => {
     return weeks
   }
 
-  // Today's stats (quick access)
+  // Today's stats (quick access, using local date)
   const todayStats = computed((): DailyStats => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = toLocalDateStr(new Date())
     const stats = getDailyStats(today, today)
     return stats[0] || { date: today, total_focus_time: 0, completed_pomodoros: 0, sessions_count: 0 }
   })
