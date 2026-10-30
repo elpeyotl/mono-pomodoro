@@ -42,49 +42,35 @@
 </template>
 
 <script setup lang="ts">
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+// Landeseite nach Google-Login und nach dem Bestätigungslink aus der Mail
+const user = useAuthUser()
 
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const userEmail = computed(() => user.value?.email || 'User')
 
+const ERROR_TEXT: Record<string, string> = {
+  INVALID_TOKEN: 'This link is invalid or has expired. Please sign in again to get a new one.',
+  TOKEN_EXPIRED: 'This link has expired. Please sign in again to get a new one.',
+  access_denied: 'Google sign-in was cancelled.'
+}
+
 onMounted(async () => {
   try {
-    // Check if we have hash params (OAuth callback)
-    const hashParams = window.location.hash
-    
-    if (hashParams && hashParams.includes('access_token')) {
-      // The @nuxtjs/supabase module should automatically handle this
-      // but we wait a moment for it to process
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-    
-    // Check for error in URL params
     const urlParams = new URLSearchParams(window.location.search)
     const errorParam = urlParams.get('error')
-    const errorDescription = urlParams.get('error_description')
-    
     if (errorParam) {
-      error.value = errorDescription || errorParam
+      error.value = ERROR_TEXT[errorParam] || urlParams.get('error_description') || errorParam
       isLoading.value = false
       return
     }
-    
-    // Wait for user to be available
-    let attempts = 0
-    while (!user.value && attempts < 10) {
-      await new Promise(resolve => setTimeout(resolve, 300))
-      attempts++
-    }
-    
+
+    const { data } = await authClient.getSession()
     isLoading.value = false
-    
-    if (user.value) {
-      // Success - redirect after short delay
-      setTimeout(() => {
-        navigateTo('/')
-      }, 1500)
+
+    if (data?.user) {
+      user.value = { id: data.user.id, email: data.user.email, name: data.user.name }
+      setTimeout(() => navigateTo('/'), 1500)
     } else {
       error.value = 'Authentication failed. Please try again.'
     }

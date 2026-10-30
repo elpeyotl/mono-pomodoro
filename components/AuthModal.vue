@@ -169,7 +169,6 @@
 </template>
 
 <script setup lang="ts">
-const supabase = useSupabaseClient()
 
 // Modal state
 const isOpen = defineModel<boolean>({ default: false })
@@ -231,14 +230,13 @@ async function signInWithGoogle() {
   errorMessage.value = ''
   
   try {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await authClient.signIn.social({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/confirm`
-      }
+      callbackURL: '/confirm',
+      errorCallbackURL: '/confirm'
     })
     
-    if (error) throw error
+    if (error) throw new Error(error.message)
   } catch (error: any) {
     errorMessage.value = error.message || 'Failed to sign in with Google'
   } finally {
@@ -290,19 +288,20 @@ async function handleSubmit() {
 }
 
 async function signInWithEmail() {
-  const { error } = await supabase.auth.signInWithPassword({
+  const { error } = await authClient.signIn.email({
     email: email.value,
-    password: password.value
+    password: password.value,
+    callbackURL: '/confirm'
   })
   
   if (error) {
-    if (error.message.includes('Invalid login credentials')) {
+    if (error.code === 'INVALID_EMAIL_OR_PASSWORD') {
       throw new Error('Invalid email or password')
     }
-    if (error.message.includes('Email not confirmed')) {
-      throw new Error('Please verify your email before signing in')
+    if (error.code === 'EMAIL_NOT_VERIFIED' || error.status === 403) {
+      throw new Error('Please verify your email before signing in. We sent you a new link.')
     }
-    throw error
+    throw new Error(error.message || 'Sign in failed')
   }
   
   // Success - close modal
@@ -311,19 +310,18 @@ async function signInWithEmail() {
 }
 
 async function signUpWithEmail() {
-  const { error } = await supabase.auth.signUp({
+  const { error } = await authClient.signUp.email({
     email: email.value,
     password: password.value,
-    options: {
-      emailRedirectTo: `${window.location.origin}/confirm`
-    }
+    name: email.value.split('@')[0],
+    callbackURL: '/confirm'
   })
   
   if (error) {
-    if (error.message.includes('already registered')) {
+    if (error.code === 'USER_ALREADY_EXISTS' || error.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
       throw new Error('This email is already registered. Try signing in instead.')
     }
-    throw error
+    throw new Error(error.message || 'Sign up failed')
   }
   
   // Show success message
@@ -333,11 +331,12 @@ async function signUpWithEmail() {
 }
 
 async function resetPassword() {
-  const { error } = await supabase.auth.resetPasswordForEmail(email.value, {
-    redirectTo: `${window.location.origin}/reset-password`
+  const { error } = await authClient.requestPasswordReset({
+    email: email.value,
+    redirectTo: '/reset-password'
   })
   
-  if (error) throw error
+  if (error) throw new Error(error.message || 'Failed to send reset link')
   
   // Show success message
   successMessage.value = 'Check your email for a password reset link.'
