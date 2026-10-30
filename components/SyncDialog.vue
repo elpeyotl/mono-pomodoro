@@ -100,7 +100,7 @@ import { useTimerStore } from '~/stores/timerStore'
 
 const taskStore = useTaskStore()
 const timerStore = useTimerStore()
-const user = useSupabaseUser()
+const user = useAuthUser()
 
 // Local storage for tracking if sync was offered
 const syncOffered = useStorage<boolean>('focus-app-sync-offered', false)
@@ -160,10 +160,10 @@ async function performSync() {
   
   try {
     // Sync tasks and tags
-    const result = await taskStore.syncLocalToSupabase()
+    const result = await taskStore.syncLocalToServer()
     
     // Sync timer settings
-    const settingsSynced = await timerStore.syncLocalSettingsToSupabase()
+    const settingsSynced = await timerStore.syncLocalSettingsToServer()
     if (settingsSynced) {
       result.synced++
     }

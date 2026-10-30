@@ -94,8 +94,7 @@
 </template>
 
 <script setup lang="ts">
-const supabase = useSupabaseClient()
-const user = useSupabaseUser()
+const user = useAuthUser()
 const config = useRuntimeConfig()
 
 // App Version from package.json
@@ -156,14 +155,13 @@ async function installApp() {
 
 async function signOut() {
   try {
-    // Try to sign out from Supabase
-    await supabase.auth.signOut({ scope: 'local' })
+    await authClient.signOut()
   } catch (error: any) {
     // Ignore session errors - the user is already logged out
-    console.warn('Logout error (ignored):', error.message)
+    console.warn('Logout error (ignored):', error?.message)
   }
-  
-  // Clear all Supabase-related items from localStorage
+
+  // Alte Supabase-Sessions aus localStorage entfernen (Überbleibsel vor der Migration)
   if (typeof window !== 'undefined') {
     const keysToRemove: string[] = []
     for (let i = 0; i < localStorage.length; i++) {
@@ -174,7 +172,7 @@ async function signOut() {
     }
     keysToRemove.forEach(key => localStorage.removeItem(key))
   }
-  
+
   // Force reload to clear any cached state
   window.location.href = '/'
 }

@@ -346,7 +346,7 @@ const statisticsStore = useStatisticsStore()
 const taskStore = useTaskStore()
 const activeTask = computed(() => taskStore.activeTask)
 
-// Settings from timerStore (synced with Supabase for logged-in users)
+// Settings from timerStore (synced with the server for logged-in users)
 const savedSettings = computed(() => timerStore.settings)
 
 // Pomodoro count (completed focus sessions in current cycle)
@@ -356,7 +356,7 @@ const pomodoroCount = ref(0)
 const isSettingsOpen = ref(false)
 const settingsForm = ref<TimerSettings>({ ...DEFAULT_SETTINGS })
 
-// Update settingsForm when savedSettings changes (e.g., after loading from Supabase)
+// Update settingsForm when savedSettings changes (e.g., after loading from the server)
 watch(savedSettings, (newSettings) => {
   if (!isSettingsOpen.value) {
     settingsForm.value = { ...newSettings }
@@ -659,7 +659,7 @@ function openSettings() {
 }
 
 async function saveSettings() {
-  // Save via timerStore (handles validation and Supabase sync)
+  // Save via timerStore (handles validation and server sync)
   const success = await timerStore.saveSettings(settingsForm.value)
   
   if (success) {

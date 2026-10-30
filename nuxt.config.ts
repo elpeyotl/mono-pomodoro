@@ -6,7 +6,6 @@ export default defineNuxtConfig({
 
   modules: [
     '@nuxt/ui',
-    '@nuxtjs/supabase',
     '@pinia/nuxt',
     '@vueuse/nuxt',
     '@vite-pwa/nuxt'
@@ -20,17 +19,6 @@ export default defineNuxtConfig({
 
   // Nuxt UI Konfiguration (Icons werden automatisch geladen)
   ui: {},
-
-  // Supabase Konfiguration
-  supabase: {
-    redirectOptions: {
-      login: '/login',
-      callback: '/confirm',
-      include: undefined,
-      exclude: ['/*'], // Alle Seiten sind für Gäste zugänglich
-      cookieRedirect: false
-    }
-  },
 
   // Pinia Konfiguration
   pinia: {
@@ -73,22 +61,9 @@ export default defineNuxtConfig({
     workbox: {
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
-      runtimeCaching: [
-        {
-          urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-          handler: 'NetworkFirst',
-          options: {
-            cacheName: 'supabase-cache',
-            expiration: {
-              maxEntries: 50,
-              maxAgeSeconds: 60 * 60 * 24 // 24 hours
-            },
-            cacheableResponse: {
-              statuses: [0, 200]
-            }
-          }
-        }
-      ]
+      // /api/* nie aus dem Service Worker bedienen: OAuth-Callback und Verifizierungs-
+      // Links sind Navigationen und dürfen nicht auf '/' umgebogen werden
+      navigateFallbackDenylist: [/^\/api\//]
     },
     client: {
       installPrompt: true,

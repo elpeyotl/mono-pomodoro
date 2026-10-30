@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { useStorage } from '@vueuse/core'
-import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { Task, LocalTask, Subtask, CustomTag, TagColor } from '~/types'
 
 export const useTaskStore = defineStore('tasks', () => {
@@ -10,18 +9,14 @@ export const useTaskStore = defineStore('tasks', () => {
   // Benutzerdefinierte Tags (lokal für Guest Mode)
   const localTags = useStorage<CustomTag[]>('focus-app-custom-tags', [])
   
-  // Supabase User (wird von @nuxtjs/supabase bereitgestellt)
-  const user = useSupabaseUser()
-  const supabase = useSupabaseClient() as any // Type assertion for untyped Supabase
+  // Eingeloggter User (Better Auth); Daten kommen über /api/* aus Neon
+  const user = useAuthUser()
   
-  // Supabase Tasks und Tags (für eingeloggte User)
-  const supabaseTasks = ref<Task[]>([])
-  const supabaseTags = ref<CustomTag[]>([])
+  // Server-Tasks und -Tags (für eingeloggte User)
+  const serverTasks = ref<Task[]>([])
+  const serverTags = ref<CustomTag[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  
-  // Realtime Subscription
-  let realtimeChannel: RealtimeChannel | null = null
   
   // Tag-Filter (null = alle anzeigen)
   const activeTagFilter = useStorage<string | null>('focus-app-tag-filter', null)
@@ -29,7 +24,7 @@ export const useTaskStore = defineStore('tasks', () => {
   // Computed: Aktive Tags basierend auf Auth-Status
   const customTags = computed(() => {
     if (user.value) {
-      return supabaseTags.value
+      return serverTags.value
     }
     return localTags.value
   })
@@ -37,7 +32,7 @@ export const useTaskStore = defineStore('tasks', () => {
   // Computed: Aktive Datenquelle basierend auf Auth-Status
   const rawTasks = computed(() => {
     if (user.value) {
-      return supabaseTasks.value
+      return serverTasks.value
     }
     return localTasks.value as Task[]
   })
@@ -114,18 +109,13 @@ export const useTaskStore = defineStore('tasks', () => {
 
   // ==================== Tag Operationen ====================
 
-  // Tags von Supabase laden
+  // Tags von Server laden
   async function fetchTags(): Promise<void> {
     if (!user.value) return
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from('tags')
-        .select('*')
-        .order('created_at', { ascending: true })
-
-      if (supabaseError) throw supabaseError
-      supabaseTags.value = (data || []).map((tag: any) => ({
+      const data = await $fetch<CustomTag[]>('/api/tags')
+      serverTags.value = (data || []).map(tag => ({
         id: tag.id,
         name: tag.name,
         color: tag.color as TagColor
@@ -144,22 +134,14 @@ export const useTaskStore = defineStore('tasks', () => {
     }
 
     if (user.value) {
-      // Supabase: Tag mit user_id erstellen
+      // Server: Tag mit user_id erstellen
       try {
-        const { data, error: supabaseError } = await supabase
-          .from('tags')
-          .insert({
-            id: newTag.id,
-            user_id: user.value.id,
-            name: newTag.name,
-            color: newTag.color
-          })
-          .select()
-          .single()
-
-        if (supabaseError) throw supabaseError
+        const data = await $fetch<CustomTag | null>('/api/tags', {
+          method: 'POST',
+          body: { id: newTag.id, name: newTag.name, color: newTag.color }
+        })
         if (data) {
-          supabaseTags.value.push({
+          serverTags.value.push({
             id: data.id,
             name: data.name,
             color: data.color as TagColor
@@ -179,21 +161,16 @@ export const useTaskStore = defineStore('tasks', () => {
   // Tag löschen
   async function deleteTag(tagId: string): Promise<void> {
     if (user.value) {
-      // Supabase: Tag löschen
+      // Server: Tag löschen
       try {
-        const { error: supabaseError } = await supabase
-          .from('tags')
-          .delete()
-          .eq('id', tagId)
-
-        if (supabaseError) throw supabaseError
-        supabaseTags.value = supabaseTags.value.filter(t => t.id !== tagId)
+        await $fetch(`/api/tags/${tagId}`, { method: 'DELETE' })
+        serverTags.value = serverTags.value.filter(t => t.id !== tagId)
       } catch (e: any) {
         console.error('Error deleting tag:', e)
       }
 
       // Tag auch von allen Tasks entfernen
-      supabaseTasks.value = supabaseTasks.value.map(task => ({
+      serverTasks.value = serverTasks.value.map(task => ({
         ...task,
         tags: task.tags?.filter(t => t !== tagId) || []
       }))
@@ -215,19 +192,11 @@ export const useTaskStore = defineStore('tasks', () => {
   async function updateTag(tagId: string, updates: Partial<Omit<CustomTag, 'id'>>): Promise<void> {
     if (user.value) {
       try {
-        const { error: supabaseError } = await supabase
-          .from('tags')
-          .update({
-            ...updates,
-            updated_at: now()
-          })
-          .eq('id', tagId)
+        await $fetch(`/api/tags/${tagId}`, { method: 'PATCH', body: updates })
 
-        if (supabaseError) throw supabaseError
-
-        const index = supabaseTags.value.findIndex(t => t.id === tagId)
+        const index = serverTags.value.findIndex(t => t.id === tagId)
         if (index !== -1) {
-          supabaseTags.value[index] = { ...supabaseTags.value[index], ...updates }
+          serverTags.value[index] = { ...serverTags.value[index], ...updates }
         }
       } catch (e: any) {
         console.error('Error updating tag:', e)
@@ -245,8 +214,8 @@ export const useTaskStore = defineStore('tasks', () => {
     return customTags.value.find(t => t.id === tagId)
   }
 
-  // Lokale Tags zu Supabase migrieren (nach Login)
-  async function syncLocalTagsToSupabase(): Promise<{ synced: number; errors: number }> {
+  // Lokale Tags zu Server migrieren (nach Login)
+  async function syncLocalTagsToServer(): Promise<{ synced: number; errors: number }> {
     if (!user.value || localTags.value.length === 0) {
       return { synced: 0, errors: 0 }
     }
@@ -256,16 +225,10 @@ export const useTaskStore = defineStore('tasks', () => {
 
     for (const localTag of localTags.value) {
       try {
-        const { error: supabaseError } = await supabase
-          .from('tags')
-          .insert({
-            id: localTag.id,
-            user_id: user.value.id,
-            name: localTag.name,
-            color: localTag.color
-          })
-
-        if (supabaseError) throw supabaseError
+        await $fetch('/api/tags', {
+          method: 'POST',
+          body: { id: localTag.id, name: localTag.name, color: localTag.color }
+        })
         synced++
       } catch (e) {
         console.error('Error syncing tag:', e)
@@ -318,21 +281,15 @@ export const useTaskStore = defineStore('tasks', () => {
     }
 
     if (user.value) {
-      // Supabase: Task mit user_id erstellen
-      // NICHT lokal hinzufügen - Realtime-Event wird den Task hinzufügen
+      // Server: Task anlegen und die gespeicherte Version übernehmen
       isLoading.value = true
       error.value = null
       
       try {
-        const { error: supabaseError } = await supabase
-          .from('tasks')
-          .insert({
-            ...newTask,
-            user_id: user.value.id
-          })
-
-        if (supabaseError) throw supabaseError
-        // Task wird über Realtime-INSERT-Event hinzugefügt
+        const saved = await $fetch<Task | null>('/api/tasks', { method: 'POST', body: newTask })
+        if (saved && !serverTasks.value.some(t => t.id === saved.id)) {
+          serverTasks.value.push(saved)
+        }
       } catch (e: any) {
         error.value = e.message
         console.error('Error adding task:', e)
@@ -357,17 +314,12 @@ export const useTaskStore = defineStore('tasks', () => {
       error.value = null
       
       try {
-        const { error: supabaseError } = await supabase
-          .from('tasks')
-          .update(updatedData)
-          .eq('id', id)
-
-        if (supabaseError) throw supabaseError
+        await $fetch(`/api/tasks/${id}`, { method: 'PATCH', body: updatedData })
         
         // Lokalen State aktualisieren
-        const index = supabaseTasks.value.findIndex(t => t.id === id)
+        const index = serverTasks.value.findIndex(t => t.id === id)
         if (index !== -1) {
-          supabaseTasks.value[index] = { ...supabaseTasks.value[index], ...updatedData }
+          serverTasks.value[index] = { ...serverTasks.value[index], ...updatedData }
         }
       } catch (e: any) {
         error.value = e.message
@@ -390,14 +342,9 @@ export const useTaskStore = defineStore('tasks', () => {
       error.value = null
       
       try {
-        const { error: supabaseError } = await supabase
-          .from('tasks')
-          .delete()
-          .eq('id', id)
-
-        if (supabaseError) throw supabaseError
+        await $fetch(`/api/tasks/${id}`, { method: 'DELETE' })
         
-        supabaseTasks.value = supabaseTasks.value.filter(t => t.id !== id)
+        serverTasks.value = serverTasks.value.filter(t => t.id !== id)
       } catch (e: any) {
         error.value = e.message
         console.error('Error deleting task:', e)
@@ -421,16 +368,10 @@ export const useTaskStore = defineStore('tasks', () => {
       error.value = null
       
       try {
-        // Supabase: Batch delete mit .in()
-        const { error: supabaseError } = await supabase
-          .from('tasks')
-          .delete()
-          .in('id', ids)
-
-        if (supabaseError) throw supabaseError
+        await $fetch('/api/tasks/delete', { method: 'POST', body: { ids } })
         
         // Lokalen State aktualisieren
-        supabaseTasks.value = supabaseTasks.value.filter(t => !ids.includes(t.id))
+        serverTasks.value = serverTasks.value.filter(t => !ids.includes(t.id))
         deleted = ids.length
       } catch (e: any) {
         error.value = e.message
@@ -571,9 +512,9 @@ export const useTaskStore = defineStore('tasks', () => {
     return { completed, total: task.subtasks.length }
   }
 
-  // ==================== Supabase Sync ====================
+  // ==================== Server Sync ====================
 
-  // Tasks von Supabase laden
+  // Tasks von Server laden
   async function fetchTasks(): Promise<void> {
     if (!user.value) return
 
@@ -581,13 +522,8 @@ export const useTaskStore = defineStore('tasks', () => {
     error.value = null
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (supabaseError) throw supabaseError
-      supabaseTasks.value = (data || []) as Task[]
+      const data = await $fetch<Task[]>('/api/tasks')
+      serverTasks.value = data || []
     } catch (e: any) {
       error.value = e.message
       console.error('Error fetching tasks:', e)
@@ -596,8 +532,8 @@ export const useTaskStore = defineStore('tasks', () => {
     }
   }
 
-  // Lokale Tasks und Tags zu Supabase migrieren (nach Login)
-  async function syncLocalToSupabase(): Promise<{ synced: number; errors: number }> {
+  // Lokale Tasks und Tags zu Server migrieren (nach Login)
+  async function syncLocalToServer(): Promise<{ synced: number; errors: number }> {
     if (!user.value) {
       return { synced: 0, errors: 0 }
     }
@@ -606,7 +542,7 @@ export const useTaskStore = defineStore('tasks', () => {
     let errors = 0
 
     // Zuerst Tags synchronisieren
-    const tagResult = await syncLocalTagsToSupabase()
+    const tagResult = await syncLocalTagsToServer()
     synced += tagResult.synced
     errors += tagResult.errors
 
@@ -614,14 +550,7 @@ export const useTaskStore = defineStore('tasks', () => {
     if (localTasks.value.length > 0) {
       for (const localTask of localTasks.value) {
         try {
-          const { error: supabaseError } = await supabase
-            .from('tasks')
-            .insert({
-              ...localTask,
-              user_id: user.value.id
-            })
-
-          if (supabaseError) throw supabaseError
+          await $fetch('/api/tasks', { method: 'POST', body: localTask })
           synced++
         } catch (e) {
           console.error('Error syncing task:', e)
@@ -642,106 +571,42 @@ export const useTaskStore = defineStore('tasks', () => {
   // Prüfen ob lokale Tasks existieren (für Sync-Prompt)
   const hasLocalTasks = computed(() => localTasks.value.length > 0)
 
-  // ==================== Realtime Subscription ====================
+  // ==================== Sync zwischen Geräten ====================
+  // Ersatz für Supabase-Realtime: beim Zurückkehren in den Tab neu laden
 
-  // Realtime-Subscription für Tasks starten
-  function subscribeToRealtime(): void {
-    if (!user.value || realtimeChannel) return
+  let lastRefresh = 0
 
-    console.log('[Realtime] Subscribing to tasks channel...')
-    
-    realtimeChannel = supabase
-      .channel(`tasks-${user.value.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.value.id}`
-        },
-        (payload: any) => {
-          console.log('[Realtime] INSERT received:', payload.new.id)
-          // Nur hinzufügen wenn der Task noch nicht existiert (vermeidet Duplikate)
-          const exists = supabaseTasks.value.some(t => t.id === payload.new.id)
-          if (!exists) {
-            supabaseTasks.value.push(payload.new as Task)
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.value.id}`
-        },
-        (payload: any) => {
-          console.log('[Realtime] UPDATE received:', payload.new.id)
-          const index = supabaseTasks.value.findIndex(t => t.id === payload.new.id)
-          if (index !== -1) {
-            // Nur aktualisieren wenn die Daten neuer sind
-            const existingTask = supabaseTasks.value[index]
-            const newUpdatedAt = new Date(payload.new.updated_at).getTime()
-            const existingUpdatedAt = new Date(existingTask.updated_at).getTime()
-            
-            if (newUpdatedAt >= existingUpdatedAt) {
-              supabaseTasks.value[index] = payload.new as Task
-            }
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'tasks',
-          filter: `user_id=eq.${user.value.id}`
-        },
-        (payload: any) => {
-          console.log('[Realtime] DELETE received:', payload.old.id)
-          supabaseTasks.value = supabaseTasks.value.filter(t => t.id !== payload.old.id)
-        }
-      )
-      .subscribe((status: string) => {
-        console.log('[Realtime] Subscription status:', status)
-      })
+  function refreshOnFocus(): void {
+    if (!user.value || document.visibilityState !== 'visible') return
+    if (Date.now() - lastRefresh < 5000) return
+    lastRefresh = Date.now()
+    fetchTasks()
+    fetchTags()
   }
 
-  // Realtime-Subscription beenden
-  function unsubscribeFromRealtime(): void {
-    if (realtimeChannel) {
-      console.log('[Realtime] Unsubscribing from tasks channel...')
-      supabase.removeChannel(realtimeChannel)
-      realtimeChannel = null
-    }
+  if (import.meta.client) {
+    document.addEventListener('visibilitychange', refreshOnFocus)
+    window.addEventListener('focus', refreshOnFocus)
   }
 
   // ==================== Watchers ====================
 
-  // Bei User-Änderung Tasks und Tags laden + Realtime starten/stoppen
-  watch(user, async (newUser, oldUser) => {
-    // Alte Subscription beenden
-    if (oldUser && !newUser) {
-      unsubscribeFromRealtime()
-    }
-    
+  // Bei User-Änderung Tasks und Tags laden
+  watch(user, async (newUser) => {
     if (newUser) {
+      lastRefresh = Date.now()
       await Promise.all([fetchTasks(), fetchTags()])
-      // Realtime-Subscription starten
-      subscribeToRealtime()
     } else {
-      supabaseTasks.value = []
-      supabaseTags.value = []
+      serverTasks.value = []
+      serverTags.value = []
     }
   }, { immediate: true })
 
   // Cleanup bei Store-Zerstörung (z.B. bei Hot-Reload)
   if (import.meta.hot) {
     import.meta.hot.dispose(() => {
-      unsubscribeFromRealtime()
+      document.removeEventListener('visibilitychange', refreshOnFocus)
+      window.removeEventListener('focus', refreshOnFocus)
     })
   }
 
@@ -771,26 +636,19 @@ export const useTaskStore = defineStore('tasks', () => {
     }))
 
     if (user.value) {
-      // Supabase: Batch-Update
+      // Server: Batch-Update
       isLoading.value = true
       error.value = null
       
       try {
-        for (const update of updates) {
-          const { error: supabaseError } = await supabase
-            .from('tasks')
-            .update({ sort_order: update.sort_order, updated_at: now() })
-            .eq('id', update.id)
-
-          if (supabaseError) throw supabaseError
-        }
+        await $fetch('/api/tasks/reorder', { method: 'POST', body: { ids: reorderedTaskIds } })
         
         // Lokalen State aktualisieren
         for (const update of updates) {
-          const index = supabaseTasks.value.findIndex(t => t.id === update.id)
+          const index = serverTasks.value.findIndex(t => t.id === update.id)
           if (index !== -1) {
-            supabaseTasks.value[index] = {
-              ...supabaseTasks.value[index],
+            serverTasks.value[index] = {
+              ...serverTasks.value[index],
               sort_order: update.sort_order,
               updated_at: now()
             }
@@ -865,6 +723,6 @@ export const useTaskStore = defineStore('tasks', () => {
     
     // Sync Actions
     fetchTasks,
-    syncLocalToSupabase
+    syncLocalToServer
   }
 })

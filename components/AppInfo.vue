@@ -232,8 +232,8 @@ const features = [
   },
   {
     icon: 'i-heroicons-arrow-path',
-    title: 'Realtime Updates',
-    description: 'Changes sync instantly across all your devices'
+    title: 'Multi-Device Sync',
+    description: 'Changes sync across your devices when you switch back to the app'
   },
   {
     icon: 'i-heroicons-chart-bar',
@@ -258,6 +258,14 @@ const shortcuts = [
 
 // Changelog
 const changelog = [
+  {
+    version: '1.12.0',
+    date: 'October 30, 2026',
+    changes: [
+      { type: 'improvement', text: 'Moved database and sign-in from Supabase to Neon' },
+      { type: 'improvement', text: 'Devices now sync when you return to the app instead of via Realtime' }
+    ]
+  },
   {
     version: '1.11.5',
     date: 'January 9, 2026',

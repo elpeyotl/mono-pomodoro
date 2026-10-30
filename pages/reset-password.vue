@@ -88,8 +88,17 @@
 </template>
 
 <script setup lang="ts">
-const supabase = useSupabaseClient()
 const router = useRouter()
+const route = useRoute()
+
+// Better Auth hängt ?token=… an (oder ?error=INVALID_TOKEN bei abgelaufenem Link)
+const token = computed(() => typeof route.query.token === 'string' ? route.query.token : '')
+
+onMounted(() => {
+  if (route.query.error || !token.value) {
+    errorMessage.value = 'This reset link is invalid or has expired. Please request a new one.'
+  }
+})
 
 // Form state
 const password = ref('')
@@ -122,11 +131,14 @@ async function updatePassword() {
   isLoading.value = true
   
   try {
-    const { error } = await supabase.auth.updateUser({
-      password: password.value
+    if (!token.value) throw new Error('Missing reset token. Please request a new link.')
+
+    const { error } = await authClient.resetPassword({
+      newPassword: password.value,
+      token: token.value
     })
     
-    if (error) throw error
+    if (error) throw new Error(error.message || 'Failed to update password')
     
     successMessage.value = 'Password updated successfully! Redirecting...'
     

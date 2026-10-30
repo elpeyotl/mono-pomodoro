@@ -24,9 +24,8 @@ export const DEFAULT_SETTINGS: TimerSettings = {
 }
 
 export const useTimerStore = defineStore('timer', () => {
-  // Supabase
-  const user = useSupabaseUser()
-  const supabase = useSupabaseClient() as any
+  // Eingeloggter User (Settings liegen in Neon, /api/settings)
+  const user = useAuthUser()
 
   // Timer state
   const currentMode = ref<TimerMode>('focus')
@@ -44,15 +43,15 @@ export const useTimerStore = defineStore('timer', () => {
   // Local settings (for guest mode)
   const localSettings = useStorage<TimerSettings>('focus-app-timer-settings', { ...DEFAULT_SETTINGS })
   
-  // Supabase settings (for logged-in users)
-  const supabaseSettings = ref<TimerSettings | null>(null)
+  // Server settings (for logged-in users)
+  const serverSettings = ref<TimerSettings | null>(null)
   const isLoading = ref(false)
   const isSyncing = ref(false)
 
   // Computed: Active settings based on auth status
   const settings = computed<TimerSettings>(() => {
-    if (user.value && supabaseSettings.value) {
-      return supabaseSettings.value
+    if (user.value && serverSettings.value) {
+      return serverSettings.value
     }
     return localSettings.value
   })
@@ -123,27 +122,16 @@ export const useTimerStore = defineStore('timer', () => {
     return false
   }
 
-  // Fetch settings from Supabase
+  // Fetch settings from Server
   async function fetchSettings(): Promise<void> {
     if (!user.value) return
 
     isLoading.value = true
     try {
-      // Use maybeSingle() instead of single() to avoid PGRST116 error
-      // maybeSingle() returns null if no row found instead of throwing
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.value.id)
-        .maybeSingle()
-
-      if (error) {
-        console.error('Error fetching settings:', error)
-        return
-      }
+      const data = await $fetch<Record<string, any> | null>('/api/settings')
 
       if (data) {
-        supabaseSettings.value = {
+        serverSettings.value = {
           focus: data.focus_duration,
           shortBreak: data.short_break_duration,
           longBreak: data.long_break_duration,
@@ -153,7 +141,7 @@ export const useTimerStore = defineStore('timer', () => {
         }
       } else {
         // No settings in DB yet - use local settings or defaults
-        supabaseSettings.value = null
+        serverSettings.value = null
       }
     } catch (e) {
       console.error('Error fetching settings:', e)
@@ -162,7 +150,7 @@ export const useTimerStore = defineStore('timer', () => {
     }
   }
 
-  // Save settings to Supabase (upsert)
+  // Save settings to Server (upsert)
   // Note: Decimal values like 0.167 (10 seconds) are allowed for testing
   async function saveSettings(newSettings: TimerSettings): Promise<boolean> {
     // Validate values - allow decimal values for testing (e.g., 0.167 = 10 seconds)
@@ -176,27 +164,22 @@ export const useTimerStore = defineStore('timer', () => {
     }
 
     if (user.value) {
-      // Save to Supabase
+      // Save to Server
       isSyncing.value = true
       try {
-        const { error } = await supabase
-          .from('user_settings')
-          .upsert({
-            user_id: user.value.id,
+        await $fetch('/api/settings', {
+          method: 'PUT',
+          body: {
             focus_duration: validated.focus,
             short_break_duration: validated.shortBreak,
             long_break_duration: validated.longBreak,
             long_break_interval: validated.longBreakInterval,
             auto_start: validated.autoStart,
-            sound_enabled: validated.soundEnabled,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id'
-          })
+            sound_enabled: validated.soundEnabled
+          }
+        })
 
-        if (error) throw error
-
-        supabaseSettings.value = validated
+        serverSettings.value = validated
         return true
       } catch (e) {
         console.error('Error saving settings:', e)
@@ -211,8 +194,8 @@ export const useTimerStore = defineStore('timer', () => {
     }
   }
 
-  // Sync local settings to Supabase (after login)
-  async function syncLocalSettingsToSupabase(): Promise<boolean> {
+  // Sync local settings to Server (after login)
+  async function syncLocalSettingsToServer(): Promise<boolean> {
     if (!user.value || !hasLocalSettings.value) {
       return false
     }
@@ -237,7 +220,7 @@ export const useTimerStore = defineStore('timer', () => {
     if (newUser) {
       await fetchSettings()
     } else {
-      supabaseSettings.value = null
+      serverSettings.value = null
     }
   }, { immediate: true })
 
@@ -264,7 +247,7 @@ export const useTimerStore = defineStore('timer', () => {
     shouldDebounceCompletion,
     fetchSettings,
     saveSettings,
-    syncLocalSettingsToSupabase,
+    syncLocalSettingsToServer,
     resetToDefaults
   }
 })

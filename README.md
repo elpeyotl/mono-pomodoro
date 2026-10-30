@@ -1,62 +1,34 @@
 # Focus App - Minimalist Pomodoro & Task Focus App
 
-Eine "Hybrid-First" Focus-App mit Pomodoro-Timer und Task-Management. Funktioniert sofort ohne Account (Guest Mode) und synchronisiert Daten nach dem Login mit Supabase.
+Eine "Hybrid-First" Focus-App mit Pomodoro-Timer und Task-Management. Funktioniert sofort ohne Account (Guest Mode) und synchronisiert Daten nach dem Login über eine Postgres-Datenbank (Neon).
 
 ## 🚀 Quick Start
 
-### 1. Dependencies installieren
+### 1. Lokal einrichten
 
 ```bash
-cd focus-app
-npm install
-```
-
-### 2. Supabase einrichten
-
-#### 2.1 Supabase Projekt erstellen
-1. Gehe zu [supabase.com](https://supabase.com) und erstelle ein Konto
-2. Klicke auf **New Project**
-3. Wähle einen Namen (z.B. `focus-app`)
-4. Wähle eine Region (z.B. `eu-central-1` für Europa)
-5. Setze ein sicheres Datenbank-Passwort
-6. Klicke auf **Create new project**
-
-#### 2.2 API Credentials kopieren
-1. Gehe zu **Settings** → **API**
-2. Kopiere die **Project URL** und den **anon public** Key
-
-#### 2.3 Environment Variables setzen
-```bash
-cp .env.example .env
-```
-
-Bearbeite `.env` und füge deine Supabase Credentials ein:
-```env
-SUPABASE_URL=https://your-project-id.supabase.co
-SUPABASE_KEY=your-anon-key
-```
-
-#### 2.4 Datenbank-Schema erstellen
-1. Gehe im Supabase Dashboard zu **SQL Editor**
-2. Klicke auf **New Query**
-3. Kopiere den Inhalt von `supabase/schema.sql`
-4. Klicke auf **Run**
-
-#### 2.5 Google OAuth aktivieren (optional)
-1. Gehe zu **Authentication** → **Providers** → **Google**
-2. Aktiviere Google
-3. Erstelle OAuth Credentials in der [Google Cloud Console](https://console.cloud.google.com):
-   - APIs & Services → Credentials → Create OAuth 2.0 Client ID
-   - Authorized Redirect URI: `https://YOUR_PROJECT.supabase.co/auth/v1/callback`
-4. Kopiere Client ID und Secret in Supabase
-
-### 3. Development Server starten
-
-```bash
+cp .env.example .env            # DATABASE_URL auf ein lokales Postgres oder einen Neon-Branch setzen
+npm install --legacy-peer-deps
+npm run db:migrate
 npm run dev
 ```
 
-Die App ist unter [http://localhost:3000](http://localhost:3000) erreichbar.
+In Claude-Cloud-Sessions erledigt `bash scripts/cloud-setup.sh` alles davon.
+
+Ohne `RESEND_API_KEY` werden Bestätigungs- und Reset-Links in der Server-Konsole ausgegeben.
+
+### 2. Google OAuth (optional)
+
+In der [Google Cloud Console](https://console.cloud.google.com) unter APIs & Services → Credentials einen
+OAuth-Client anlegen. Redirect-URI: `<BETTER_AUTH_URL>/api/auth/callback/google`
+(lokal `http://localhost:3000/api/auth/callback/google`). Client-ID und Secret als `GOOGLE_CLIENT_ID` und
+`GOOGLE_CLIENT_SECRET` setzen.
+
+### 3. Deployment (Vercel)
+
+Neon über Vercel → Storage verbinden (setzt `DATABASE_URL`, Vorschauen bekommen eigene DB-Branches).
+Zusätzlich setzen: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`RESEND_API_KEY`, `MAIL_FROM`. Der Build spielt Migrationen automatisch ein.
 
 ## 📁 Projektstruktur
 
@@ -73,9 +45,11 @@ focus-app/
 ├── pages/
 │   ├── index.vue           # Hauptseite
 │   └── confirm.vue         # OAuth Callback
+├── server/
+│   ├── api/                # CRUD-Routen (tasks, tags, sessions, settings) + /api/auth
+│   ├── db/                 # Drizzle-Schema und Migrationen
+│   └── utils/              # DB, Better Auth, Mailversand
 ├── stores/                 # Pinia Stores
-├── supabase/
-│   └── schema.sql          # Datenbank-Schema
 └── types/
     └── index.ts            # TypeScript Typen
 ```
@@ -85,7 +59,7 @@ focus-app/
 - **Frontend**: Nuxt 3, Vue 3
 - **UI**: Nuxt UI (Tailwind CSS + Heroicons)
 - **State**: Pinia
-- **Backend**: Supabase (Auth, PostgreSQL, Realtime)
+- **Backend**: Nitro-API, Neon Postgres (Drizzle ORM), Better Auth
 - **Utilities**: VueUse
 
 ## 🎯 Features

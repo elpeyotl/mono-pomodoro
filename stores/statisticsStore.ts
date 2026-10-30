@@ -6,19 +6,18 @@ export const useStatisticsStore = defineStore('statistics', () => {
   // Local sessions for guest mode
   const localSessions = useStorage<LocalFocusSession[]>('focus-app-sessions', [])
 
-  // Supabase state
-  const user = useSupabaseUser()
-  const supabase = useSupabaseClient() as any
-  const supabaseSessions = ref<FocusSession[]>([])
+  // Server state (Neon über /api/sessions)
+  const user = useAuthUser()
+  const serverSessions = ref<FocusSession[]>([])
   const isLoading = ref(false)
 
   // Computed: Active sessions source (merge both for logged-in users with fallback sessions)
   const sessions = computed(() => {
     if (user.value) {
       if (localSessions.value.length > 0) {
-        return [...supabaseSessions.value, ...(localSessions.value as FocusSession[])]
+        return [...serverSessions.value, ...(localSessions.value as FocusSession[])]
       }
-      return supabaseSessions.value
+      return serverSessions.value
     }
     return localSessions.value as FocusSession[]
   })
@@ -52,17 +51,11 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
     if (user.value) {
       try {
-        const { error } = await supabase
-          .from('focus_sessions')
-          .insert({
-            ...session,
-            user_id: user.value.id
-          })
-        if (error) throw error
-        supabaseSessions.value = [...supabaseSessions.value, { ...session, user_id: user.value.id }]
+        await $fetch('/api/sessions', { method: 'POST', body: session })
+        serverSessions.value = [...serverSessions.value, { ...session, user_id: user.value.id }]
       } catch (e) {
         console.error('Error logging focus session:', e)
-        // Fallback to localStorage if Supabase fails
+        // Fallback to localStorage if the server fails
         localSessions.value.push(session)
       }
     } else {
@@ -160,24 +153,15 @@ export const useStatisticsStore = defineStore('statistics', () => {
     return weeks[0] || null
   })
 
-  // ==================== Supabase Sync ====================
+  // ==================== Server Sync ====================
 
   async function fetchSessions(daysBack: number = 30): Promise<void> {
     if (!user.value) return
 
     isLoading.value = true
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysBack)
-
     try {
-      const { data, error } = await supabase
-        .from('focus_sessions')
-        .select('*')
-        .gte('started_at', startDate.toISOString())
-        .order('started_at', { ascending: false })
-
-      if (error) throw error
-      supabaseSessions.value = (data || []) as FocusSession[]
+      const data = await $fetch<FocusSession[]>('/api/sessions', { query: { days: daysBack } })
+      serverSessions.value = data || []
     } catch (e) {
       console.error('Error fetching sessions:', e)
     } finally {
@@ -185,7 +169,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     }
   }
 
-  async function syncLocalToSupabase(): Promise<{ synced: number; errors: number }> {
+  async function syncLocalToServer(): Promise<{ synced: number; errors: number }> {
     if (!user.value || localSessions.value.length === 0) {
       return { synced: 0, errors: 0 }
     }
@@ -195,13 +179,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
     for (const session of localSessions.value) {
       try {
-        const { error } = await supabase
-          .from('focus_sessions')
-          .insert({
-            ...session,
-            user_id: user.value.id
-          })
-        if (error) throw error
+        await $fetch('/api/sessions', { method: 'POST', body: session })
         synced++
       } catch (e) {
         console.error('Error syncing session:', e)
@@ -225,7 +203,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     if (newUser) {
       await fetchSessions()
     } else {
-      supabaseSessions.value = []
+      serverSessions.value = []
     }
   }, { immediate: true })
 
@@ -244,6 +222,6 @@ export const useStatisticsStore = defineStore('statistics', () => {
     getDailyStats,
     getWeeklyStats,
     fetchSessions,
-    syncLocalToSupabase
+    syncLocalToServer
   }
 })
